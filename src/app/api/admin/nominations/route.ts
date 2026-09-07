@@ -5,6 +5,7 @@ import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 import { hashToken, issueToken, normalizeMatric } from "@/lib/security";
 import { getPublicOrigin } from "@/lib/site-url";
+import { publishCandidatePhoto } from "@/lib/blob-storage";
 
 const createSchema = z.object({
   candidateName: z.string().trim().min(3).max(120),
@@ -57,6 +58,18 @@ export async function GET(request: Request) {
     ...invite,
     position: invite.position.title,
     priorities: JSON.parse(invite.priorities),
+    passportData: invite.passportData
+      ? `/api/admin/nominations/file?id=${encodeURIComponent(invite.id)}&field=passport`
+      : null,
+    studentIdData: invite.studentIdData
+      ? `/api/admin/nominations/file?id=${encodeURIComponent(invite.id)}&field=studentId`
+      : null,
+    transcriptData: invite.transcriptData
+      ? `/api/admin/nominations/file?id=${encodeURIComponent(invite.id)}&field=transcript`
+      : null,
+    signatureData: invite.signatureData
+      ? `/api/admin/nominations/file?id=${encodeURIComponent(invite.id)}&field=signature`
+      : null,
     tokenHash: undefined,
   });
 }
@@ -175,6 +188,25 @@ export async function PATCH(request: Request) {
     });
     return NextResponse.json({ ok: true, status: "REJECTED" });
   }
+  if (!invite.passportData)
+    return NextResponse.json(
+      { message: "The candidate must upload a passport before approval." },
+      { status: 409 },
+    );
+  let publicPhotoUrl: string;
+  try {
+    publicPhotoUrl = await publishCandidatePhoto(invite.passportData, invite.id);
+  } catch (error) {
+    return NextResponse.json(
+      {
+        message:
+          error instanceof Error
+            ? error.message
+            : "The passport could not be published to image storage.",
+      },
+      { status: 503 },
+    );
+  }
   const candidate = await db.$transaction(
     async (tx) => {
       const current = await tx.nominationInvite.findUnique({ where: { id } });
@@ -188,7 +220,7 @@ export async function PATCH(request: Request) {
         matriculationNumber,
         department: "Library & Information Science",
         level: current.level,
-        photoUrl: current.passportData,
+        photoUrl: publicPhotoUrl,
         tagline: current.tagline,
         biography: current.biography,
         manifesto: current.manifesto,

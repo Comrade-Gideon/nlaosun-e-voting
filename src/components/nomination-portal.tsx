@@ -16,6 +16,7 @@ import {
   Upload,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { upload } from "@vercel/blob/client";
 
 type Draft = {
   phone: string;
@@ -43,6 +44,7 @@ type Invite = {
   candidateName: string;
   matriculationNumber: string;
   position: { id: string; title: string };
+  uploadId: string;
   expiresAt: string;
   showExpiryCountdown: boolean;
   reviewNote: string;
@@ -99,18 +101,20 @@ const declarations = [
   "I consent to publication of my name, photograph, position, biography, manifesto, mission, vision and priorities for election purposes.",
 ];
 
-async function fileData(file: File, max: number, types: string[]) {
+function validateFile(file: File, max: number, types: string[]) {
   if (file.size > max)
     throw new Error(
       `File must be ${Math.round(max / 1_000_000)}MB or smaller.`,
     );
   if (!types.includes(file.type)) throw new Error("Unsupported file format.");
-  return await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("Could not read file."));
-    reader.readAsDataURL(file);
-  });
+  return file;
+}
+function safeUploadName(value: string) {
+  return value
+    .normalize("NFKD")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 120) || "file";
 }
 async function responseBody(response: Response) {
   const text = await response.text();
@@ -141,7 +145,14 @@ export function NominationPortal({ token }: { token: string }) {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
+  const [passportPreview, setPassportPreview] = useState<string | null>(null);
   const [invalid, setInvalid] = useState<LinkState | null>(null);
+  useEffect(
+    () => () => {
+      if (passportPreview) URL.revokeObjectURL(passportPreview);
+    },
+    [passportPreview],
+  );
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
@@ -229,22 +240,42 @@ export function NominationPortal({ token }: { token: string }) {
     file?: File,
   ) {
     if (!file) return;
+    if (!invite) return;
+    setBusy(true);
+    setError("");
     try {
       const imageOnly = key === "passport";
-      const value = await fileData(
+      validateFile(
         file,
         imageOnly ? 1_500_000 : 4_000_000,
         imageOnly
           ? ["image/png", "image/jpeg"]
           : ["application/pdf", "image/png", "image/jpeg"],
       );
+      const blob = await upload(
+        `nominations/${invite.uploadId}/${key}/${Date.now()}-${safeUploadName(file.name)}`,
+        file,
+        {
+          access: "private",
+          handleUploadUrl: `/api/nominations/${token}/upload`,
+          clientPayload: JSON.stringify({ field: key }),
+          multipart: file.size > 3_000_000,
+        },
+      );
+      if (key === "passport") {
+        if (passportPreview) URL.revokeObjectURL(passportPreview);
+        setPassportPreview(URL.createObjectURL(file));
+      }
       setData((current) => ({
         ...current,
-        [`${key}Data`]: value,
+        [`${key}Data`]: blob.url,
         [`${key}Name`]: file.name,
       }));
+      setNotice(`${file.name} uploaded securely.`);
     } catch (error) {
       setError(error instanceof Error ? error.message : "File upload failed.");
+    } finally {
+      setBusy(false);
     }
   }
   async function saveDraft(silent = false) {
@@ -479,7 +510,12 @@ export function NominationPortal({ token }: { token: string }) {
               note="JPG or PNG · Max 1.5MB"
               name={data.passportName}
               onFile={(file) => attach("passport", file)}
-              preview={data.passportData}
+              preview={
+                passportPreview ||
+                (data.passportData
+                  ? `/api/nominations/${token}/file?field=passport`
+                  : null)
+              }
             />
             <div className="nomination-two">
               <label>
@@ -733,7 +769,7 @@ function NominationDeadline({
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);
   }, [expiresAt]);
-  if (!expiresAt) return null;
+  if (!enabled || !expiresAt) return null;
   const totalSeconds = Math.max(
     0,
     Math.floor((deadline.getTime() - now) / 1_000),

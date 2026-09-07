@@ -494,7 +494,7 @@ function DocumentLink({
           <Eye />
           Preview
         </a>
-        <a href={data} download={name || label}>
+        <a href={`${data}${data.includes("?") ? "&" : "?"}download=1`} download={name || label}>
           <Download />
           Download
         </a>

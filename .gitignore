@@ -26,3 +26,6 @@ prisma/*.db*
 Thumbs.db
 .idea/
 .vscode/
+.vercel
+!.env.example
+.env*
