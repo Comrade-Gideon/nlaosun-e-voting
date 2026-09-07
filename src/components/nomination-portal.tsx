@@ -16,7 +16,6 @@ import {
   Upload,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { upload } from "@vercel/blob/client";
 
 type Draft = {
   phone: string;
@@ -252,16 +251,36 @@ export function NominationPortal({ token }: { token: string }) {
           ? ["image/png", "image/jpeg"]
           : ["application/pdf", "image/png", "image/jpeg"],
       );
-      const blob = await upload(
-        `nominations/${invite.uploadId}/${key}/${Date.now()}-${safeUploadName(file.name)}`,
-        file,
+      const pathname = `nominations/${invite.uploadId}/${key}/${Date.now()}-${safeUploadName(file.name)}`;
+      const authorizationResponse = await fetch(
+        `/api/nominations/${token}/upload`,
         {
-          access: "private",
-          handleUploadUrl: `/api/nominations/${token}/upload`,
-          clientPayload: JSON.stringify({ field: key }),
-          multipart: file.size > 3_000_000,
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            pathname,
+            field: key,
+            contentType: file.type,
+            size: file.size,
+          }),
         },
       );
+      const authorization = await responseBody(authorizationResponse);
+      if (!authorizationResponse.ok || !authorization.presignedUrl)
+        throw new Error(
+          authorization.message || "Upload authorization failed.",
+        );
+      const uploadResponse = await fetch(authorization.presignedUrl, {
+        method: "PUT",
+        headers: {
+          "x-vercel-blob-access": "private",
+          "x-content-type": file.type,
+        },
+        body: file,
+      });
+      const blob = await responseBody(uploadResponse);
+      if (!uploadResponse.ok || !blob.url)
+        throw new Error(blob.message || "File upload failed.");
       if (key === "passport") {
         if (passportPreview) URL.revokeObjectURL(passportPreview);
         setPassportPreview(URL.createObjectURL(file));
