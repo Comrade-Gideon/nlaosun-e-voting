@@ -17,6 +17,46 @@ type UploadRequest = {
 const privateStoreId =
   process.env.PRIVATE_STORE_ID || "store_ezXg1QOovbL9mwXi";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+async function createUploadToken(
+  pathname: string,
+  validUntil: number,
+  allowedContentTypes: string[],
+  maximumSizeInBytes: number,
+) {
+  const options = {
+    pathname,
+    operations: ["put"] as Array<"put">,
+    validUntil,
+    allowedContentTypes,
+    maximumSizeInBytes,
+  };
+  let oidcError = "unavailable";
+  try {
+    return await issueSignedToken({ storeId: privateStoreId, ...options });
+  } catch (error) {
+    oidcError = error instanceof Error ? error.message : "rejected";
+  }
+
+  const readWriteToken = process.env.PRIVATE_READ_WRITE_TOKEN;
+  if (readWriteToken && readWriteToken !== "[SENSITIVE]") {
+    try {
+      return await issueSignedToken({ token: readWriteToken, ...options });
+    } catch (error) {
+      const tokenError = error instanceof Error ? error.message : "rejected";
+      throw new Error(
+        `Blob authorization failed. OIDC: ${oidcError} Token: ${tokenError}`,
+      );
+    }
+  }
+
+  throw new Error(
+    `Blob authorization failed. OIDC: ${oidcError} Token: unavailable`,
+  );
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ token: string }> },
@@ -59,14 +99,12 @@ export async function POST(
       invite.expiresAt.getTime(),
       Date.now() + 10 * 60_000,
     );
-    const signedToken = await issueSignedToken({
-      storeId: privateStoreId,
-      pathname: body.pathname,
-      operations: ["put"],
+    const signedToken = await createUploadToken(
+      body.pathname,
       validUntil,
-      allowedContentTypes: config.types,
-      maximumSizeInBytes: config.maximumSizeInBytes,
-    });
+      config.types,
+      config.maximumSizeInBytes,
+    );
     const { presignedUrl } = await presignUrl(signedToken, {
       operation: "put",
       pathname: body.pathname,
