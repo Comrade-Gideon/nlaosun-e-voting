@@ -10,11 +10,13 @@ const db = new PrismaClient();
 
 function blobAuth(access: "private" | "public") {
   const prefix = access === "private" ? "PRIVATE" : "PUBLIC";
-  const token = process.env[`${prefix}_READ_WRITE_TOKEN`];
+  const configured = (value: string | undefined) =>
+    value && value !== "[SENSITIVE]" ? value : undefined;
+  const token = configured(process.env[`${prefix}_READ_WRITE_TOKEN`]);
   if (token) return { token };
 
-  const oidcToken = process.env.VERCEL_OIDC_TOKEN;
-  const storeId = process.env[`${prefix}_STORE_ID`];
+  const oidcToken = configured(process.env.VERCEL_OIDC_TOKEN);
+  const storeId = configured(process.env[`${prefix}_STORE_ID`]);
   if (oidcToken && storeId) return { oidcToken, storeId };
 
   throw new Error(
