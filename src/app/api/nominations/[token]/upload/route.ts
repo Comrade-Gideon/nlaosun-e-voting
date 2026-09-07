@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import {
   nominationFileConfig,
-  privateBlobToken,
   type NominationFileField,
 } from "@/lib/blob-storage";
 import { hashToken } from "@/lib/security";
@@ -60,11 +59,8 @@ export async function POST(
       invite.expiresAt.getTime(),
       Date.now() + 10 * 60_000,
     );
-    const auth = process.env.PRIVATE_READ_WRITE_TOKEN
-      ? { token: privateBlobToken() }
-      : { storeId: privateStoreId };
     const signedToken = await issueSignedToken({
-      ...auth,
+      storeId: privateStoreId,
       pathname: body.pathname,
       operations: ["put"],
       validUntil,
