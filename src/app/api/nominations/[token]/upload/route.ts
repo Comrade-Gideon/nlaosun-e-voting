@@ -25,6 +25,7 @@ async function createUploadToken(
   validUntil: number,
   allowedContentTypes: string[],
   maximumSizeInBytes: number,
+  requestOidcToken?: string,
 ) {
   const options = {
     pathname,
@@ -35,7 +36,11 @@ async function createUploadToken(
   };
   let oidcError = "unavailable";
   try {
-    return await issueSignedToken({ storeId: privateStoreId, ...options });
+    return await issueSignedToken({
+      storeId: privateStoreId,
+      ...(requestOidcToken ? { oidcToken: requestOidcToken } : {}),
+      ...options,
+    });
   } catch (error) {
     oidcError = error instanceof Error ? error.message : "rejected";
   }
@@ -104,6 +109,7 @@ export async function POST(
       validUntil,
       config.types,
       config.maximumSizeInBytes,
+      request.headers.get("x-vercel-oidc-token")?.trim() || undefined,
     );
     const { presignedUrl } = await presignUrl(signedToken, {
       operation: "put",
