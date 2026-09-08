@@ -14,7 +14,7 @@ npm run dev
 
 The local seed provides a demo eligible voter:
 
-- Matriculation number: `NALISS/2023/001`
+- Matriculation number: `ETL/2023/001`
 - Surname: `Okafor`
 
 Change `SESSION_SECRET` and `ADMIN_PASSWORD` before deploying. Use the pooled Neon URL for `DATABASE_URL` and the direct URL for `DATABASE_URL_UNPOOLED`.
