@@ -28,6 +28,13 @@ Configure these variables in the Vercel project for Production, Preview, and Dev
 - `SESSION_SECRET`
 - `ADMIN_PASSWORD`
 - `NEXT_PUBLIC_SITE_URL` (your canonical production URL, for example `https://naliss.example`)
+- `PRIVATE_READ_WRITE_TOKEN` and `PRIVATE_STORE_ID` (nomination uploads and the admin document preview/download)
+- `PUBLIC_READ_WRITE_TOKEN` and `PUBLIC_STORE_ID` (published candidate photos)
+
+`ADMIN_PASSWORD` must be at least 12 characters in every environment. When it is missing or
+shorter, `/api/admin/login` answers 503 with "Administrator login is not configured" and nobody
+can reach the admin panel. Without `PRIVATE_READ_WRITE_TOKEN` the nomination records still list,
+but every passport, preview and download returns 502 because the private blob cannot be read.
 
 Then deploy with `vercel --prod`. The install lifecycle generates Prisma Client automatically. Apply schema changes to Neon with `npx prisma db push` before deploying application code that depends on them.
 

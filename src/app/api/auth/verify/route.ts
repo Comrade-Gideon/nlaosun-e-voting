@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { getPublishedElection } from "@/lib/elections";
+import { getPublishedElectionSummary } from "@/lib/elections";
 import {
   hashSurname,
   hashesEqual,
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   const parsed = inputSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ message: "Enter a valid matriculation number and surname." }, { status: 400 });
 
-  const election = await getPublishedElection();
+  const election = await getPublishedElectionSummary();
   const voter = await db.voter.findUnique({ where: { matriculationNumber: normalizeMatric(parsed.data.matriculationNumber) } });
   const validIdentity = voter && hashesEqual(voter.surnameNormalizedHash, hashSurname(parsed.data.surname));
   const existingBallot = voter && election

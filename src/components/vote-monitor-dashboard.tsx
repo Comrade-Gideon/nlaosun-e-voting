@@ -4,6 +4,11 @@ import { useRouter } from "next/navigation";
 import { CircleSlash2, Clock3, Radio, Search, Users, Vote } from "lucide-react";
 import { ResultsControl } from "@/components/results-control";
 
+// Each refresh re-runs the whole server route: session lookup, election, every
+// ballot and every candidate. On metered database egress a tab left open overnight
+// is the single largest recurring cost, so this polls a minute apart and starts off.
+const REFRESH_MS = 60_000;
+
 type Activity = { label: string; count: number };
 type CandidateResult = { id: string; name: string; pka: string; votes: number; initials: string };
 type Position = { id: string; title: string; validVotes: number; voidVotes: number; candidates: CandidateResult[] };
@@ -26,12 +31,12 @@ type Props = {
 
 export function VoteMonitorDashboard(props: Props) {
   const router = useRouter();
-  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [autoRefresh, setAutoRefresh] = useState(false);
   const [query, setQuery] = useState("");
   const [position, setPosition] = useState("");
   useEffect(() => {
     if (!autoRefresh) return;
-    const timer = setInterval(() => router.refresh(), 15000);
+    const timer = setInterval(() => router.refresh(), REFRESH_MS);
     return () => clearInterval(timer);
   }, [autoRefresh, router]);
   const visible = useMemo(

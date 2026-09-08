@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { db, withDatabaseRetry } from "@/lib/db";
+import { db, isTransientDatabaseError } from "@/lib/db";
 import { hashesEqual, hashToken, issueToken } from "@/lib/security";
 
 export const ADMIN_COOKIE = "naliss_admin_session";
@@ -22,13 +22,17 @@ export async function isAdminAuthenticated() {
   const token = (await cookies()).get(ADMIN_COOKIE)?.value;
   if (!token) return false;
   try {
-    const session = await withDatabaseRetry(() =>
-      db.adminSession.findUnique({
-        where: { tokenHash: hashToken(token) },
-      }),
-    );
+    const session = await db.adminSession.findUnique({
+      where: { tokenHash: hashToken(token) },
+    });
     return Boolean(session && session.expiresAt > new Date());
-  } catch {
+  } catch (error) {
+    console.error(
+      isTransientDatabaseError(error)
+        ? "Administrator session lookup failed because the database was unreachable."
+        : "Administrator session lookup failed.",
+      error,
+    );
     return false;
   }
 }

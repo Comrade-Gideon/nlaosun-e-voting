@@ -17,14 +17,24 @@ export async function GET(request: Request) {
   if (!id || !config)
     return NextResponse.json({ message: "Invalid file request." }, { status: 400 });
 
-  const invite = await db.nominationInvite.findUnique({ where: { id } });
-  if (!invite) return NextResponse.json({ message: "Not found." }, { status: 404 });
-  const value = invite[config.dataKey as keyof typeof invite];
-  const name = invite[config.nameKey as keyof typeof invite];
-  if (typeof value !== "string") return new Response("File not found.", { status: 404 });
-  return storedFileResponse(
-    value,
-    typeof name === "string" ? name : field,
-    url.searchParams.get("download") === "1" ? "attachment" : "inline",
-  );
+  try {
+    const invite = await db.nominationInvite.findUnique({ where: { id } });
+    if (!invite)
+      return NextResponse.json({ message: "Not found." }, { status: 404 });
+    const value = invite[config.dataKey as keyof typeof invite];
+    const name = invite[config.nameKey as keyof typeof invite];
+    if (typeof value !== "string")
+      return new Response("File not found.", { status: 404 });
+    return await storedFileResponse(
+      value,
+      typeof name === "string" ? name : field,
+      url.searchParams.get("download") === "1" ? "attachment" : "inline",
+    );
+  } catch (error) {
+    console.error(`Nomination file ${field} for ${id} could not be served.`, error);
+    return NextResponse.json(
+      { message: "The nomination file could not be retrieved." },
+      { status: 502 },
+    );
+  }
 }

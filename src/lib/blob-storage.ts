@@ -39,8 +39,12 @@ export const nominationFileConfig: Record<
 };
 
 export function privateBlobToken() {
-  const token = process.env.PRIVATE_READ_WRITE_TOKEN;
-  if (!token) throw new Error("PRIVATE_READ_WRITE_TOKEN is not configured.");
+  const token =
+    process.env.PRIVATE_READ_WRITE_TOKEN || process.env.BLOB_READ_WRITE_TOKEN;
+  if (!token || token === "[SENSITIVE]")
+    throw new Error(
+      "PRIVATE_READ_WRITE_TOKEN is not configured in this environment.",
+    );
   return token;
 }
 
@@ -70,7 +74,9 @@ export function safeFilename(value: string | null | undefined, fallback: string)
 }
 
 function privateStoreHost() {
-  const storeId = process.env.PRIVATE_STORE_ID?.replace(/^store_/, "").toLowerCase();
+  const storeId = (process.env.PRIVATE_STORE_ID || process.env.BLOB_STORE_ID)
+    ?.replace(/^store_/, "")
+    .toLowerCase();
   return storeId ? `${storeId}.private.blob.vercel-storage.com` : null;
 }
 
@@ -123,12 +129,25 @@ export async function storedFileResponse(
     });
   }
 
-  const result = await get(storedValue, {
-    access: "private",
-    token: privateBlobToken(),
-  });
-  if (!result || result.statusCode !== 200)
+  let result: Awaited<ReturnType<typeof get>>;
+  try {
+    result = await get(storedValue, {
+      access: "private",
+      token: privateBlobToken(),
+    });
+  } catch (error) {
+    console.error(`Private blob read failed for ${storedValue}.`, error);
+    return new Response(
+      "The stored file could not be read from private storage.",
+      { status: 502 },
+    );
+  }
+  if (!result || result.statusCode !== 200) {
+    console.error(
+      `Private blob read returned ${result?.statusCode ?? "no response"} for ${storedValue}.`,
+    );
     return new Response("File not found.", { status: 404 });
+  }
   return new Response(result.stream, {
     headers: {
       "Content-Type": result.blob.contentType || "application/octet-stream",

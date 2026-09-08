@@ -45,6 +45,65 @@ export function formatWat(value: Date) {
   return new Intl.DateTimeFormat("en-NG", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "Africa/Lagos", timeZoneName: "short" }).format(value);
 }
 
+/**
+ * Election scalars only, with no positions or candidates attached. The full loader
+ * below pulls every candidate biography, manifesto, vision and mission (~3 KB a row)
+ * even for callers that never read them; on Neon's metered egress that turns a
+ * sub-kilobyte request into a 20 KB one.
+ */
+export async function getPublishedElectionSummary() {
+  return withDatabaseRetry(() => db.election.findFirst({
+    where: { status: "PUBLISHED" },
+    orderBy: { opensAt: "desc" },
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+      description: true,
+      opensAt: true,
+      closesAt: true,
+      status: true,
+      showCountdown: true,
+      resultsPublishedAt: true,
+    },
+  }));
+}
+
+/**
+ * Positions with a candidate id list, for callers that show position cards and a
+ * candidate tally but render no candidate detail. Keeps the full text out of a
+ * page that only reads `position.candidates.length`.
+ */
+export async function getPublishedElectionOverview() {
+  const election = await withDatabaseRetry(() => db.election.findFirst({
+    where: { status: "PUBLISHED" },
+    orderBy: { opensAt: "desc" },
+    select: {
+      id: true,
+      slug: true,
+      title: true,
+      description: true,
+      opensAt: true,
+      closesAt: true,
+      status: true,
+      showCountdown: true,
+      resultsPublishedAt: true,
+      positions: {
+        orderBy: { sortOrder: "asc" },
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          description: true,
+          sortOrder: true,
+          candidates: { select: { id: true } },
+        },
+      },
+    },
+  }));
+  return election ? { ...election, positions: sortNalissOffices(election.positions) } : null;
+}
+
 export async function getPublishedElection() {
   const election = await withDatabaseRetry(() => db.election.findFirst({
     where: { status: "PUBLISHED" },

@@ -15,7 +15,15 @@ export default async function AdminResults() {
           include: {
             candidates: {
               orderBy: { name: "asc" },
-              include: { _count: { select: { votes: true } } },
+              // This page re-runs every time the monitor auto-refreshes, so it takes
+              // only the four fields the dashboard renders. Pulling whole candidate
+              // rows here cost ~3 KB each per refresh for text nobody displays.
+              select: {
+                id: true,
+                name: true,
+                pka: true,
+                _count: { select: { votes: true } },
+              },
             },
           },
         },

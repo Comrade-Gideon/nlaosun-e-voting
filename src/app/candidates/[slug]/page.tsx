@@ -13,7 +13,11 @@ import { SiteHeader } from "@/components/site-header";
 import { CandidatePhoto } from "@/components/candidate-photo";
 import { db } from "@/lib/db";
 
-export const dynamic = "force-dynamic";
+// Cached and revalidated on a timer so public traffic costs a fixed number of
+// database reads per hour instead of one per visitor. Candidate edits, nomination
+// approvals and results publication all call revalidatePath already, so those
+// changes still appear immediately; only untouched data can be up to 5 min stale.
+export const revalidate = 300;
 
 export default async function CandidatePage({
   params,

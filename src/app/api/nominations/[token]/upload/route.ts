@@ -15,7 +15,7 @@ type UploadRequest = {
 };
 
 const privateStoreId =
-  process.env.PRIVATE_STORE_ID || "store_ezXg1QOovbL9mwXi";
+  process.env.PRIVATE_STORE_ID || process.env.BLOB_STORE_ID || "store_ezXg1QOovbL9mwXi";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,6 +34,17 @@ async function createUploadToken(
     allowedContentTypes,
     maximumSizeInBytes,
   };
+  const readWriteToken =
+    process.env.PRIVATE_READ_WRITE_TOKEN || process.env.BLOB_READ_WRITE_TOKEN;
+  if (readWriteToken && readWriteToken !== "[SENSITIVE]") {
+    try {
+      return await issueSignedToken({ token: readWriteToken, ...options });
+    } catch (error) {
+      const tokenError = error instanceof Error ? error.message : "rejected";
+      throw new Error(`Blob authorization failed. Token: ${tokenError}`);
+    }
+  }
+
   let oidcError = "unavailable";
   try {
     return await issueSignedToken({
@@ -43,18 +54,6 @@ async function createUploadToken(
     });
   } catch (error) {
     oidcError = error instanceof Error ? error.message : "rejected";
-  }
-
-  const readWriteToken = process.env.PRIVATE_READ_WRITE_TOKEN;
-  if (readWriteToken && readWriteToken !== "[SENSITIVE]") {
-    try {
-      return await issueSignedToken({ token: readWriteToken, ...options });
-    } catch (error) {
-      const tokenError = error instanceof Error ? error.message : "rejected";
-      throw new Error(
-        `Blob authorization failed. OIDC: ${oidcError} Token: ${tokenError}`,
-      );
-    }
   }
 
   throw new Error(

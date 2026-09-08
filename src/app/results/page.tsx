@@ -6,11 +6,15 @@ import { SiteHeader } from "@/components/site-header";
 import { db, withDatabaseRetry } from "@/lib/db";
 import { formatWat, sortNalissOffices } from "@/lib/elections";
 
-export const dynamic="force-dynamic";
+// Cached and revalidated on a timer so public traffic costs a fixed number of
+// database reads per hour instead of one per visitor. Candidate edits, nomination
+// approvals and results publication all call revalidatePath already, so those
+// changes still appear immediately; only untouched data can be up to 5 min stale.
+export const revalidate = 300;
 
 export default async function ResultsPage(){
   const loaded = await withDatabaseRetry(() => Promise.all([
-    db.election.findFirst({where:{status:"PUBLISHED"},include:{_count:{select:{ballots:true}},positions:{orderBy:{sortOrder:"asc"},include:{candidates:{include:{_count:{select:{votes:true}}}}}}}}),
+    db.election.findFirst({where:{status:"PUBLISHED"},include:{_count:{select:{ballots:true}},positions:{orderBy:{sortOrder:"asc"},include:{candidates:{select:{id:true,name:true,pka:true,photoUrl:true,_count:{select:{votes:true}}}}}}}}),
     db.voter.count({where:{eligible:true}}),
   ])).catch(() => null);
   const election = loaded?.[0] ?? null;
