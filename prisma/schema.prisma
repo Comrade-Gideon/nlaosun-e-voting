@@ -1,5 +1,9 @@
 generator client {
   provider = "prisma-client-js"
+  // The app runs on Cloudflare Workers, which cannot load Prisma's native query
+  // engine or open raw TCP sockets. Driver adapters let queries go through
+  // Neon's serverless driver over WebSockets instead.
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {

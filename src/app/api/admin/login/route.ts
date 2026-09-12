@@ -26,12 +26,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("Administrator login failed.", error);
-    const configurationError =
-      error instanceof Error && error.message.startsWith("ADMIN_PASSWORD");
+    const message = error instanceof Error ? error.message : "";
+    // Both secrets are read before any database call, so a missing one used to be
+    // misreported as a database outage.
+    const missingSecret = ["ADMIN_PASSWORD", "SESSION_SECRET"].find((name) => message.startsWith(name));
     return NextResponse.json(
       {
-        message: configurationError
-          ? "Administrator login is not configured. Add an ADMIN_PASSWORD of at least 12 characters to the deployment environment."
+        message: missingSecret
+          ? `Administrator login is not configured: ${message}. Add ${missingSecret} to the deployment's runtime variables.`
           : "Administrator login is temporarily unavailable. Check the Neon database variables and apply the Prisma schema.",
       },
       { status: 503 },

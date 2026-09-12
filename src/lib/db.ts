@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { PrismaNeon } from "@prisma/adapter-neon";
 
 const transientDatabaseCodes = new Set([
   "P1001", // Can't reach database server
@@ -55,7 +56,12 @@ export async function withDatabaseRetry<T>(operation: () => Promise<T>) {
 }
 
 function createPrismaClient() {
-  return new PrismaClient().$extends({
+  // Neon's serverless driver over WebSockets rather than Prisma's native engine,
+  // which Cloudflare Workers cannot run. WebSockets (not Neon's HTTP mode) because
+  // nomination submission and approval use interactive transactions, which the
+  // HTTP driver does not support. Works unchanged under Node for local dev.
+  const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL! });
+  return new PrismaClient({ adapter }).$extends({
     query: {
       $allOperations: ({ args, query }) => withDatabaseRetry(() => query(args)),
     },
