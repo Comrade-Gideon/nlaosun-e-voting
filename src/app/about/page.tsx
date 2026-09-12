@@ -16,35 +16,35 @@ import { SiteFooter } from "@/components/site-footer";
 const team = [
   {
     name: "Gideon Oluwatomiwa AYODELE",
-    role: "Chairman, NALISS 2024/2025 Electoral Commission",
+    role: "Chairman, NLA Osun State Chapter 2026 Election Committee",
     duty: "Provides electoral leadership and safeguards a fair, credible, and transparent election.",
     image: "/gideon-oluwatomiwa-ayodele.png",
     Icon: Scale,
   },
   {
     name: "Ayooluwa Gideon OLOYEDE",
-    role: "General Secretary, NALISS 2024/2025 Electoral Commission",
-    duty: "Serves the General Secretary of NALISS 2024/2025 Electoral Commission.",
+    role: "General Secretary, NLA Osun State Chapter 2026 Election Committee",
+    duty: "Serves the General Secretary of NLA Osun State Chapter 2026 Election Committee.",
     image: "/ayooluwa-gideon-oloyede-clean.png",
     Icon: ClipboardCheck,
   },
   {
     name: "Emmanuel Oluwaseyi OLULOWO",
-    role: "PRO, NALISS 2024/2025 Electoral Commission",
-    duty: "Coordinates official publicity and voter communication for the Electoral Commission.",
+    role: "PRO, NLA Osun State Chapter 2026 Election Committee",
+    duty: "Coordinates official publicity and voter communication for the Election Committee.",
     image: null,
     Icon: Megaphone,
   },
   {
     name: "Solomon Ayomide OLARINRE",
-    role: "Member, NALISS 2024/2025 Electoral Commission",
+    role: "Member, NLA Osun State Chapter 2026 Election Committee",
     duty: null,
     image: "/olarine_solomon.png",
     Icon: BadgeCheck,
   },
   {
     name: "Rhoda",
-    role: "Member, NALISS 2024/2025 Electoral Commission",
+    role: "Member, NLA Osun State Chapter 2026 Election Committee",
     duty: null,
     image: null,
     Icon: ShieldCheck,
@@ -60,34 +60,33 @@ export default function About() {
           <div>
             <span className="about-chip">
               <Sparkles />
-              About the commission
+              About the committee
             </span>
-            <h1>About NALISS</h1>
+            <h1>About NLA Osun State Chapter</h1>
             <p>
-              The Electoral Commission of the National Association of Library
-              and Information Science Students administers a fair, secure, and
-              credible departmental election. Through this verified e-voting
-              platform, we protect every eligible voice and make every vote
-              count.
+              The Election Committee of the Nigerian Library Association,
+              Osun State Chapter administers a fair, secure, and credible
+              chapter election. Through this verified e-voting platform, we
+              protect every eligible voice and make every vote count.
             </p>
             <strong>
               <Quote />
-              Information Is Power
+              Advancing librarianship in Osun State
             </strong>
           </div>
-          <div className="about-mark" aria-label="NALISS">
+          <div className="about-mark" aria-label="NLA Osun State Chapter">
             <ShieldCheck />
-            <small>NALISS</small>
+            <small>NLA Osun</small>
           </div>
         </section>
 
         <section className="about-team-heading">
           <div>
             <span>THE PEOPLE BEHIND THE ELECTION</span>
-            <h2>Meet the Electoral Commission</h2>
+            <h2>Meet the Election Committee</h2>
           </div>
           <p>
-            Officials committed to a transparent and credible NALISS election.
+            Officials committed to a transparent and credible chapter election.
           </p>
         </section>
         <div className="about-team-grid">
@@ -116,8 +115,8 @@ export default function About() {
           <div>
             <h2>Ready to make your voice count?</h2>
             <p>
-              Review the candidates and participate in the NALISS departmental
-              election.
+              Review the candidates and participate in the NLA Osun State
+              Chapter election.
             </p>
           </div>
           <Link href="/election">

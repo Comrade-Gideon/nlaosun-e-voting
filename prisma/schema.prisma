@@ -31,10 +31,15 @@ model Election {
   ballots       Ballot[]
   sessions      VotingSession[]
   announcements Announcement[]
+  nominations   NominationInvite[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   showCountdown Boolean        @default(true)
   resultsPublishedAt DateTime?
+  // Nominations use one shared link; these bound the window it accepts entries in.
+  // Both unset (or either null) means nominations are closed.
+  nominationsOpenAt  DateTime?
+  nominationsCloseAt DateTime?
 }
 
 model Position {
@@ -62,8 +67,11 @@ model Candidate {
   name       String
   pka        String   @default("")
   matriculationNumber String?
+  email      String?
+  lrcnNumber String?
+  currentPosition String  @default("")
   department String
-  level      String
+  level      String     @default("")
   photoUrl   String?
   tagline    String
   biography  String
@@ -88,15 +96,18 @@ model NominationInvite {
   id                    String           @id @default(cuid())
   tokenHash             String           @unique
   candidateName         String
-  matriculationNumber   String
+  email                 String
+  electionId            String
+  election              Election         @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  lrcnCertified         Boolean          @default(false)
+  lrcnNumber            String?
+  currentPosition       String           @default("")
   positionId            String
   position              Position         @relation(fields: [positionId], references: [id], onDelete: Cascade)
   expiresAt             DateTime
   status                NominationStatus @default(DRAFT)
   showCountdown         Boolean          @default(false)
   phone                  String           @default("")
-  level                  String           @default("")
-  cgpa                   String           @default("")
   permanentAddress       String           @default("")
   pka                    String           @default("")
   tagline                String           @default("")
@@ -105,12 +116,15 @@ model NominationInvite {
   mission                String           @default("")
   vision                 String           @default("")
   priorities             String           @default("[]")
+  // Names and emails the candidate types before submitting. Real Guarantor rows
+  // (which carry links) are only created once the nomination is submitted.
+  guarantorsDraft        String           @default("[]")
   passportData           String?
   passportName           String?
   studentIdData          String?
   studentIdName          String?
-  transcriptData         String?
-  transcriptName         String?
+  identificationData     String?
+  identificationName     String?
   signatureData          String?
   signatureName          String?
   declarationsAccepted   Boolean          @default(false)
@@ -119,10 +133,36 @@ model NominationInvite {
   reviewNote             String           @default("")
   reviewedAt             DateTime?
   submittedAt            DateTime?
+  guarantors             Guarantor[]
   createdAt              DateTime          @default(now())
   updatedAt              DateTime          @updatedAt
 
-  @@index([matriculationNumber, status])
+  // Email identifies a nomination within one election, so a past candidate can
+  // stand again in a later election without an administrator clearing their row.
+  @@unique([electionId, email])
+  @@index([electionId, email, status])
+}
+
+/// Two guarantors per nomination. The candidate supplies only name and email;
+/// each guarantor then completes their own section through a link of their own,
+/// so a candidate can never author their own recommendation.
+model Guarantor {
+  id             String           @id @default(cuid())
+  nominationId   String
+  nomination     NominationInvite @relation(fields: [nominationId], references: [id], onDelete: Cascade)
+  tokenHash      String           @unique
+  name           String
+  email          String
+  institution    String           @default("")
+  phone          String           @default("")
+  recommendation String           @default("")
+  signatureData  String?
+  signatureName  String?
+  invitedAt      DateTime?
+  submittedAt    DateTime?
+  createdAt      DateTime         @default(now())
+
+  @@index([nominationId])
 }
 
 model Voter {
@@ -131,6 +171,7 @@ model Voter {
   surnameNormalizedHash String
   displayName           String
   eligible              Boolean         @default(true)
+  department            String          @default("")
   level                 String          @default("")
   ballots               Ballot[]
   sessions              VotingSession[]

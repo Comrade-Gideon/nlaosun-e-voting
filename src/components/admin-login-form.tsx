@@ -36,7 +36,7 @@ export function AdminLoginForm() {
   return (
     <form className="login-form" onSubmit={submit}>
       <h1>Administrator Login</h1>
-      <p>Sign in to manage the NALISS election workspace.</p>
+      <p>Sign in to manage the NLA Osun State Chapter election workspace.</p>
       <label>
         Password
         <input

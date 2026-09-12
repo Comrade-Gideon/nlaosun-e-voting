@@ -22,7 +22,7 @@ export default async function Announcements() {
     <SiteHeader />
     <main className="page announcements-page">
       <section className="announcements-heading">
-        <div><span><Newspaper />NALISS UPDATES</span><h1>Announcements &amp; Blog</h1><p>Stay informed with the latest election news, important announcements, and stories from the NALISS community.</p></div>
+        <div><span><Newspaper />NLA OSUN UPDATES</span><h1>Announcements &amp; Blog</h1><p>Stay informed with the latest election news, important announcements, and stories from the NLA Osun State Chapter community.</p></div>
         <strong><i />Election updates live</strong>
       </section>
       <AnnouncementDirectory posts={serialised} />

@@ -116,7 +116,7 @@ export function PublicResultsDashboard(props: Props) {
 
     <section className="about-public-results">
       <CheckCircle2 />
-      <div><h2>About These Results</h2><p>These results represent verified ballots recorded by the NALISS E-Voting Platform. Candidate totals and void selections are presented per position and were officially released by the Electoral Commission.</p><small>Results status: Official · Published {props.publishedAt}</small></div>
+      <div><h2>About These Results</h2><p>These results represent verified ballots recorded by the NLA Osun State Chapter E-Voting Platform. Candidate totals and void selections are presented per position and were officially released by the Election Committee.</p><small>Results status: Official · Published {props.publishedAt}</small></div>
     </section>
   </main>;
 }

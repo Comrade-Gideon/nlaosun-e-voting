@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { Logo } from "./logo";
 
+const footerLinks = [
+  ["/", "Home"], ["/candidates", "Candidates"], ["/election", "Election Schedule"],
+  ["/#faq", "FAQs"], ["/#support", "Contact"], ["/about", "Privacy Policy"],
+] as const;
+
 export function SiteFooter() {
-  return <footer><div><Logo/><p className="footer-name">ELECTORAL COMMISSION, NATIONAL ASSOCIATION OF LIBRARY &amp; INFORMATION SCIENCE STUDENTS</p><em>Information Is Power</em></div><div><b>Navigate</b><Link href="/">Home</Link><Link href="/election">Election</Link><Link href="/candidates">Candidates</Link><Link href="/results">Results</Link><Link href="/about">About</Link></div><div><b>Legal</b><span>Privacy</span><span>Terms</span><span>Contact</span></div><p className="copyright">© 2026 NALISS Electoral Commission. All rights reserved.</p></footer>;
+  return <footer><Logo/><nav className="footer-nav">{footerLinks.map(([href, label]) => <Link href={href} key={label}>{label}</Link>)}</nav><p className="copyright">© 2026 Nigerian Library Association, Osun State Chapter. All rights reserved.</p></footer>;
 }

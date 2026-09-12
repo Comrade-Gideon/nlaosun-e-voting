@@ -1,9 +1,15 @@
-import { get, put } from "@vercel/blob";
+import {
+  getObject,
+  privateBucket,
+  publicBucket,
+  publicUrlFor,
+  putObject,
+} from "@/lib/r2";
 
 export type NominationFileField =
   | "passport"
   | "studentId"
-  | "transcript"
+  | "identification"
   | "signature";
 
 const dataUrlPattern = /^data:([^;,]+);base64,([\s\S]+)$/;
@@ -24,9 +30,9 @@ export const nominationFileConfig: Record<
     types: ["application/pdf", "image/png", "image/jpeg"],
     maximumSizeInBytes: 4_000_000,
   },
-  transcript: {
-    dataKey: "transcriptData",
-    nameKey: "transcriptName",
+  identification: {
+    dataKey: "identificationData",
+    nameKey: "identificationName",
     types: ["application/pdf", "image/png", "image/jpeg"],
     maximumSizeInBytes: 4_000_000,
   },
@@ -38,34 +44,18 @@ export const nominationFileConfig: Record<
   },
 };
 
-export function privateBlobToken() {
-  const token =
-    process.env.PRIVATE_READ_WRITE_TOKEN || process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token || token === "[SENSITIVE]")
-    throw new Error(
-      "PRIVATE_READ_WRITE_TOKEN is not configured in this environment.",
-    );
-  return token;
-}
-
-export function publicBlobToken() {
-  const token = process.env.PUBLIC_READ_WRITE_TOKEN;
-  if (!token) throw new Error("PUBLIC_READ_WRITE_TOKEN is not configured.");
-  return token;
-}
-
 export function isDataUrl(value: string | null | undefined) {
   return Boolean(value && dataUrlPattern.test(value));
 }
 
 export function decodeDataUrl(value: string) {
   const match = value.match(dataUrlPattern);
-  if (!match) throw new Error("Invalid Base64 data URL.");
+  if (!match) throw new Error("Value is not a base64 data URL.");
   return { contentType: match[1], body: Buffer.from(match[2], "base64") };
 }
 
 export function safeFilename(value: string | null | undefined, fallback: string) {
-  const cleaned = (value || fallback)
+  const cleaned = (value ?? "")
     .normalize("NFKD")
     .replace(/[^a-zA-Z0-9._-]+/g, "-")
     .replace(/^-+|-+$/g, "")
@@ -73,18 +63,18 @@ export function safeFilename(value: string | null | undefined, fallback: string)
   return cleaned || fallback;
 }
 
-function privateStoreHost() {
-  const storeId = (process.env.PRIVATE_STORE_ID || process.env.BLOB_STORE_ID)
-    ?.replace(/^store_/, "")
-    .toLowerCase();
-  return storeId ? `${storeId}.private.blob.vercel-storage.com` : null;
-}
-
+/**
+ * Private nomination and guarantor files are stored in R2 by object key rather
+ * than URL — the private bucket is never publicly readable, so a URL would be
+ * meaningless. Each key is namespaced by the owning record's id, which is what
+ * stops one candidate referencing another's document.
+ */
 export function isExpectedNominationBlob(
   value: string,
-  inviteId: string,
+  ownerId: string,
   field: NominationFileField,
 ) {
+  // Legacy rows stored the file inline as base64; validate those by content.
   if (isDataUrl(value)) {
     try {
       const decoded = decodeDataUrl(value);
@@ -97,18 +87,11 @@ export function isExpectedNominationBlob(
       return false;
     }
   }
-  try {
-    const url = new URL(value);
-    const expectedHost = privateStoreHost();
-    return (
-      url.protocol === "https:" &&
-      url.hostname.endsWith(".private.blob.vercel-storage.com") &&
-      (!expectedHost || url.hostname === expectedHost) &&
-      url.pathname.startsWith(`/nominations/${inviteId}/${field}/`)
-    );
-  } catch {
-    return false;
-  }
+  return (
+    !value.includes("..") &&
+    !value.startsWith("/") &&
+    value.startsWith(`nominations/${ownerId}/${field}/`)
+  );
 }
 
 export async function storedFileResponse(
@@ -117,58 +100,39 @@ export async function storedFileResponse(
   disposition: "inline" | "attachment" = "inline",
 ) {
   const safeName = safeFilename(filename, "document");
+  const headers = (contentType: string, length?: number) => ({
+    "Content-Type": contentType,
+    ...(length === undefined ? {} : { "Content-Length": String(length) }),
+    "Content-Disposition": `${disposition}; filename="${safeName}"`,
+    "Cache-Control": "private, no-store",
+    "X-Content-Type-Options": "nosniff",
+  });
+
   if (isDataUrl(storedValue)) {
     const decoded = decodeDataUrl(storedValue);
-    return new Response(decoded.body, {
-      headers: {
-        "Content-Type": decoded.contentType,
-        "Content-Disposition": `${disposition}; filename="${safeName}"`,
-        "Cache-Control": "private, no-store",
-        "X-Content-Type-Options": "nosniff",
-      },
-    });
+    return new Response(decoded.body, { headers: headers(decoded.contentType) });
   }
 
-  let result: Awaited<ReturnType<typeof get>>;
   try {
-    result = await get(storedValue, {
-      access: "private",
-      token: privateBlobToken(),
+    const result = await getObject(privateBucket(), storedValue);
+    if (!result.Body) return new Response("File not found.", { status: 404 });
+    return new Response(result.Body.transformToWebStream(), {
+      headers: headers(result.ContentType || "application/octet-stream", result.ContentLength),
     });
   } catch (error) {
-    console.error(`Private blob read failed for ${storedValue}.`, error);
-    return new Response(
-      "The stored file could not be read from private storage.",
-      { status: 502 },
-    );
+    const status = (error as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode;
+    if (status === 404) return new Response("File not found.", { status: 404 });
+    console.error(`Private R2 read failed for ${storedValue}.`, error);
+    return new Response("The stored file could not be read from private storage.", { status: 502 });
   }
-  if (!result || result.statusCode !== 200) {
-    console.error(
-      `Private blob read returned ${result?.statusCode ?? "no response"} for ${storedValue}.`,
-    );
-    return new Response("File not found.", { status: 404 });
-  }
-  return new Response(result.stream, {
-    headers: {
-      "Content-Type": result.blob.contentType || "application/octet-stream",
-      "Content-Length": String(result.blob.size),
-      "Content-Disposition": `${disposition}; filename="${safeName}"`,
-      "Cache-Control": "private, no-store",
-      "X-Content-Type-Options": "nosniff",
-    },
-  });
 }
 
 export async function storedImageDataUrl(storedValue: string) {
   if (isDataUrl(storedValue)) return storedValue;
-  const result = await get(storedValue, {
-    access: "private",
-    token: privateBlobToken(),
-  });
-  if (!result || result.statusCode !== 200)
-    throw new Error("Image not found in private storage.");
-  const bytes = Buffer.from(await new Response(result.stream).arrayBuffer());
-  return `data:${result.blob.contentType || "image/jpeg"};base64,${bytes.toString("base64")}`;
+  const result = await getObject(privateBucket(), storedValue);
+  if (!result.Body) throw new Error("Image not found in private storage.");
+  const bytes = Buffer.from(await result.Body.transformToByteArray());
+  return `data:${result.ContentType || "image/jpeg"};base64,${bytes.toString("base64")}`;
 }
 
 function extensionFor(contentType: string) {
@@ -177,39 +141,39 @@ function extensionFor(contentType: string) {
   return "jpg";
 }
 
+/**
+ * Publishes an approved candidate's passport out of the private bucket into the
+ * public one. Called on approval, which is the point the photo becomes public.
+ */
 export async function publishCandidatePhoto(
   storedValue: string,
   nominationId: string,
 ) {
-  let body: Parameters<typeof put>[1];
+  let body: Buffer;
   let contentType: string;
+
   if (isDataUrl(storedValue)) {
     const decoded = decodeDataUrl(storedValue);
     body = decoded.body;
     contentType = decoded.contentType;
-  } else if (storedValue.includes(".public.blob.vercel-storage.com")) {
+  } else if (/^https?:\/\//.test(storedValue)) {
+    // Already a published URL; nothing to copy.
     return storedValue;
   } else {
-    const result = await get(storedValue, {
-      access: "private",
-      token: privateBlobToken(),
-    });
-    if (!result || result.statusCode !== 200)
+    const result = await getObject(privateBucket(), storedValue);
+    if (!result.Body)
       throw new Error("The candidate passport could not be read from private storage.");
-    body = result.stream;
-    contentType = result.blob.contentType || "image/jpeg";
+    body = Buffer.from(await result.Body.transformToByteArray());
+    contentType = result.ContentType || "image/jpeg";
   }
 
-  const result = await put(
-    `candidates/${nominationId}/passport.${extensionFor(contentType)}`,
+  const key = `candidates/${nominationId}/passport.${extensionFor(contentType)}`;
+  await putObject({
+    bucket: publicBucket(),
+    key,
     body,
-    {
-      access: "public",
-      token: publicBlobToken(),
-      contentType,
-      allowOverwrite: true,
-      cacheControlMaxAge: 60 * 60 * 24 * 30,
-    },
-  );
-  return result.url;
+    contentType,
+    cacheControl: `public, max-age=${60 * 60 * 24 * 30}`,
+  });
+  return publicUrlFor(key);
 }

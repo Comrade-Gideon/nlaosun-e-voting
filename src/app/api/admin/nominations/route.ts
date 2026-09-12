@@ -3,17 +3,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
-import { hashToken, issueToken, normalizeMatric } from "@/lib/security";
-import { getPublicOrigin } from "@/lib/site-url";
 import { publishCandidatePhoto } from "@/lib/blob-storage";
 
-const createSchema = z.object({
-  candidateName: z.string().trim().min(3).max(120),
-  matriculationNumber: z.string().trim().min(4).max(50),
-  positionId: z.string().min(1),
-  validDays: z.enum(["7", "14", "30", "CUSTOM"]).default("14"),
-  customExpiresAt: z.string().trim().optional(),
-});
 const reviewSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("APPROVE") }),
   z.object({
@@ -27,14 +18,6 @@ const slugify = (value: string) =>
     .normalize("NFKD")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
-
-function watDate(value: string | undefined) {
-  const match = value?.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
-  if (!match) return null;
-  const [, year, month, day, hour, minute] = match;
-  const date = new Date(Date.UTC(+year, +month - 1, +day, +hour - 1, +minute));
-  return Number.isNaN(date.getTime()) ? null : date;
-}
 
 export async function GET(request: Request) {
   if (!(await isAdminAuthenticated()))
@@ -64,85 +47,14 @@ export async function GET(request: Request) {
     studentIdData: invite.studentIdData
       ? `/api/admin/nominations/file?id=${encodeURIComponent(invite.id)}&field=studentId`
       : null,
-    transcriptData: invite.transcriptData
-      ? `/api/admin/nominations/file?id=${encodeURIComponent(invite.id)}&field=transcript`
+    identificationData: invite.identificationData
+      ? `/api/admin/nominations/file?id=${encodeURIComponent(invite.id)}&field=identification`
       : null,
     signatureData: invite.signatureData
       ? `/api/admin/nominations/file?id=${encodeURIComponent(invite.id)}&field=signature`
       : null,
     tokenHash: undefined,
   });
-}
-
-export async function POST(request: Request) {
-  if (!(await isAdminAuthenticated()))
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-  const parsed = createSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success)
-    return NextResponse.json(
-      {
-        message:
-          "Enter the candidate name, matriculation number, position and validity period.",
-      },
-      { status: 400 },
-    );
-  const matriculationNumber = normalizeMatric(parsed.data.matriculationNumber);
-  const [position, candidate, activeInvite] = await Promise.all([
-    db.position.findUnique({ where: { id: parsed.data.positionId } }),
-    db.candidate.findFirst({ where: { matriculationNumber } }),
-    db.nominationInvite.findFirst({
-      where: {
-        matriculationNumber,
-        status: { in: ["DRAFT", "REJECTED", "SUBMITTED"] },
-      },
-    }),
-  ]);
-  if (!position)
-    return NextResponse.json(
-      { message: "Position not found." },
-      { status: 404 },
-    );
-  if (candidate)
-    return NextResponse.json(
-      { message: "A candidate already exists with this matriculation number." },
-      { status: 409 },
-    );
-  if (activeInvite)
-    return NextResponse.json(
-      {
-        message:
-          "An active nomination link already exists for this matriculation number.",
-      },
-      { status: 409 },
-    );
-  const token = issueToken();
-  const customExpiry = watDate(parsed.data.customExpiresAt);
-  if (parsed.data.validDays === "CUSTOM" && (!customExpiry || customExpiry <= new Date()))
-    return NextResponse.json(
-      { message: "Choose a future expiry date and time in WAT." },
-      { status: 400 },
-    );
-  const expiresAt = parsed.data.validDays === "CUSTOM"
-    ? customExpiry!
-    : new Date(Date.now() + Number(parsed.data.validDays) * 86400000);
-  const invite = await db.nominationInvite.create({
-    data: {
-      tokenHash: hashToken(token),
-      candidateName: parsed.data.candidateName,
-      matriculationNumber,
-      positionId: position.id,
-      expiresAt,
-      showCountdown: true,
-    },
-  });
-  return NextResponse.json(
-    {
-      id: invite.id,
-      link: `${getPublicOrigin(request)}/nominate/${token}`,
-      expiresAt: invite.expiresAt,
-    },
-    { status: 201 },
-  );
 }
 
 export async function PATCH(request: Request) {
@@ -212,14 +124,14 @@ export async function PATCH(request: Request) {
       const current = await tx.nominationInvite.findUnique({ where: { id } });
       if (!current || current.status !== "SUBMITTED")
         throw new Error("ALREADY_REVIEWED");
-      const matriculationNumber = normalizeMatric(current.matriculationNumber);
       const candidateData = {
         positionId: current.positionId,
         name: current.candidateName,
         pka: current.pka,
-        matriculationNumber,
-        department: "Library & Information Science",
-        level: current.level,
+        email: current.email,
+        lrcnNumber: current.lrcnNumber,
+        currentPosition: current.currentPosition,
+        department: current.currentPosition,
         photoUrl: publicPhotoUrl,
         tagline: current.tagline,
         biography: current.biography,
@@ -231,7 +143,7 @@ export async function PATCH(request: Request) {
       };
       let existing = current.candidateId
         ? await tx.candidate.findUnique({ where: { id: current.candidateId } })
-        : await tx.candidate.findFirst({ where: { matriculationNumber } });
+        : await tx.candidate.findFirst({ where: { email: current.email } });
       if (existing)
         existing = await tx.candidate.update({
           where: { id: existing.id },
@@ -250,7 +162,7 @@ export async function PATCH(request: Request) {
         data: {
           status: "APPROVED",
           candidateId: existing.id,
-          reviewNote: "Approved by the Electoral Commission.",
+          reviewNote: "Approved by the Election Committee.",
           reviewedAt: new Date(),
         },
       });

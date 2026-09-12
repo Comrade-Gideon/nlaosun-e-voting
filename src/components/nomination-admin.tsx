@@ -7,31 +7,60 @@ import {
   Download,
   Eye,
   FileText,
+  CalendarClock,
   Link2,
+  LockKeyhole,
   Printer,
   RotateCcw,
   Trash2,
-  UserPlus,
   X,
   XCircle,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 type Position = { id: string; title: string };
+type NominationWindow = { opensAt: string | null; closesAt: string | null };
+
+/** datetime-local wants wall-clock WAT, not the browser's local zone. */
+const watLocal = (value: string | null) => {
+  if (!value) return "";
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Lagos", year: "numeric", month: "2-digit",
+    day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(new Date(value));
+  const get = (type: string) => parts.find((part) => part.type === type)?.value;
+  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
+};
+
+function windowState(nominationWindow: NominationWindow) {
+  if (!nominationWindow.opensAt || !nominationWindow.closesAt) return "closed" as const;
+  const now = Date.now();
+  if (now < new Date(nominationWindow.opensAt).getTime()) return "upcoming" as const;
+  if (now > new Date(nominationWindow.closesAt).getTime()) return "closed" as const;
+  return "open" as const;
+}
+type GuarantorSummary = {
+  id: string;
+  name: string;
+  email: string;
+  invited: boolean;
+  completed: boolean;
+};
 type Invitation = {
   id: string;
   candidateName: string;
-  matriculationNumber: string;
+  email: string;
+  lrcnNumber: string | null;
   position: string;
   status: string;
   expiresAt: string;
   submittedAt: string | null;
   reviewNote: string;
+  guarantors: GuarantorSummary[];
 };
 type Review = Invitation & {
   phone: string;
-  level: string;
-  cgpa: string;
+  currentPosition: string;
   permanentAddress: string;
   pka: string;
   tagline: string;
@@ -44,8 +73,8 @@ type Review = Invitation & {
   passportName: string | null;
   studentIdData: string | null;
   studentIdName: string | null;
-  transcriptData: string | null;
-  transcriptName: string | null;
+  identificationData: string | null;
+  identificationName: string | null;
   signatureData: string | null;
   signatureName: string | null;
   declarationsAccepted: boolean;
@@ -61,42 +90,82 @@ async function body(response: Response) {
 export function NominationAdmin({
   positions,
   invitations,
+  nominationWindow,
+  shareLink,
 }: {
   positions: Position[];
   invitations: Invitation[];
+  nominationWindow: NominationWindow;
+  shareLink: string;
 }) {
   const router = useRouter();
   const printRef = useRef<HTMLElement>(null);
-  const [link, setLink] = useState("");
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [review, setReview] = useState<Review | null>(null);
   const [reviewBusy, setReviewBusy] = useState(false);
   const [note, setNote] = useState("");
-  const [validity, setValidity] = useState("14");
-  async function generate(event: React.FormEvent<HTMLFormElement>) {
+  const openState = windowState(nominationWindow);
+  async function saveWindow(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
     setError("");
-    setLink("");
-    const data = Object.fromEntries(new FormData(event.currentTarget));
-    const response = await fetch("/api/admin/nominations", {
-      method: "POST",
+    setNotice("");
+    const form = new FormData(event.currentTarget);
+    const response = await fetch("/api/admin/nominations/window", {
+      method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        action: "SET",
+        opensAt: `${form.get("opensAt")}+01:00`,
+        closesAt: `${form.get("closesAt")}+01:00`,
+      }),
     });
     const result = await body(response);
     if (response.ok) {
-      setLink(result.link);
-      event.currentTarget.reset();
-      setValidity("14");
+      setNotice("Nomination window saved in West Africa Time (WAT).");
       router.refresh();
     } else setError(result.message);
     setBusy(false);
   }
+  async function closeNow() {
+    if (!confirm("Close nominations now? The shared link will stop accepting entries.")) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    const response = await fetch("/api/admin/nominations/window", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "CLOSE" }),
+    });
+    const result = await body(response);
+    if (response.ok) {
+      setNotice("Nominations are now closed.");
+      router.refresh();
+    } else setError(result.message);
+    setBusy(false);
+  }
+  async function resendGuarantor(guarantor: GuarantorSummary) {
+    setError("");
+    setNotice("");
+    const response = await fetch("/api/admin/nominations/guarantors", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ guarantorId: guarantor.id }),
+    });
+    const result = await body(response);
+    if (!response.ok) return setError(result.message);
+    setNotice(
+      result.sent
+        ? `A new link was emailed to ${guarantor.email}.`
+        : `${result.error} Link for ${guarantor.name}: ${result.link}`,
+    );
+    router.refresh();
+  }
   async function copy() {
-    await navigator.clipboard.writeText(link);
+    await navigator.clipboard.writeText(shareLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 1600);
   }
@@ -172,7 +241,7 @@ export function NominationAdmin({
     const popup = window.open("", "_blank", "width=980,height=760");
     if (!popup) return alert("Allow pop-ups to print this candidate form.");
     popup.document.write(
-      `<!doctype html><html><head><title>${review?.candidateName || "Candidate"} - Nomination Form</title><style>body{font-family:Raleway,Arial,sans-serif;color:#111;margin:32px}header{display:flex;justify-content:space-between;border-bottom:2px solid #800000;padding-bottom:16px}h2{margin:4px 0}.review-candidate-profile{display:grid;grid-template-columns:180px 1fr;gap:24px;align-items:center;padding:24px 0}.review-candidate-profile img{width:180px;height:180px;object-fit:cover;border-radius:10px}.review-candidate-profile dl{display:grid;grid-template-columns:1fr 1fr;gap:12px}.review-candidate-profile dl div{padding:10px;background:#f7f7f7}.review-candidate-profile dt{font-size:11px;color:#666;text-transform:uppercase}.review-candidate-profile dd{margin:4px 0 0;font-weight:700}.review-text,.review-priorities{border-top:1px solid #ddd;padding:15px 0;break-inside:avoid}.review-text p{white-space:pre-wrap;line-height:1.55}.review-text small{color:#666}.previous-review-note{padding:14px;background:#fff8e7}@media print{body{margin:16mm}.review-text p{font-size:10pt}}</style></head><body>${printable.outerHTML}</body></html>`,
+      `<!doctype html><html><head><title>${review?.candidateName || "Candidate"} - Nomination Form</title><style>body{font-family:Raleway,Arial,sans-serif;color:#111;margin:32px}header{display:flex;justify-content:space-between;border-bottom:2px solid #0f7a3d;padding-bottom:16px}h2{margin:4px 0}.review-candidate-profile{display:grid;grid-template-columns:180px 1fr;gap:24px;align-items:center;padding:24px 0}.review-candidate-profile img{width:180px;height:180px;object-fit:cover;border-radius:10px}.review-candidate-profile dl{display:grid;grid-template-columns:1fr 1fr;gap:12px}.review-candidate-profile dl div{padding:10px;background:#f7f7f7}.review-candidate-profile dt{font-size:11px;color:#666;text-transform:uppercase}.review-candidate-profile dd{margin:4px 0 0;font-weight:700}.review-text,.review-priorities{border-top:1px solid #ddd;padding:15px 0;break-inside:avoid}.review-text p{white-space:pre-wrap;line-height:1.55}.review-text small{color:#666}.previous-review-note{padding:14px;background:#fff8e7}@media print{body{margin:16mm}.review-text p{font-size:10pt}}</style></head><body>${printable.outerHTML}</body></html>`,
     );
     popup.document.close();
     popup.focus();
@@ -185,86 +254,77 @@ export function NominationAdmin({
   return (
     <>
       <div className="nomination-admin-grid">
-        <form className="admin-card nomination-link-form" onSubmit={generate}>
+        <form className="admin-card nomination-link-form" onSubmit={saveWindow}>
           <div className="nomination-card-title">
-            <UserPlus />
+            <CalendarClock />
             <div>
-              <h2>Generate Candidate Link</h2>
+              <h2>Nomination Window</h2>
               <p>
-                Name and matriculation number will be locked on the
-                candidate&apos;s form.
+                Every candidate uses the same nomination link. Set the period it
+                accepts entries; outside it the link is closed automatically.
               </p>
             </div>
           </div>
-          <label>
-            Candidate Full Name
-            <input
-              name="candidateName"
-              required
-              placeholder="e.g. Amaka Chukwu"
-            />
-          </label>
-          <label>
-            Matriculation Number
-            <input
-              name="matriculationNumber"
-              required
-              placeholder="e.g. NAL/23/1048"
-            />
-          </label>
+          <p className={`nomination-window-state ${openState}`}>
+            {openState === "open"
+              ? "Nominations are OPEN — the shared link is accepting entries."
+              : openState === "upcoming"
+                ? "Nominations are SCHEDULED — the link opens at the time below."
+                : "Nominations are CLOSED — the shared link is not accepting entries."}
+          </p>
           <div className="form-grid">
             <label>
-              Position
-              <select name="positionId" required defaultValue="">
-                <option value="" disabled>
-                  Select position
-                </option>
-                {positions.map((position) => (
-                  <option value={position.id} key={position.id}>
-                    {position.title}
-                  </option>
-                ))}
-              </select>
+              Nominations Open (WAT)
+              <input
+                type="datetime-local"
+                name="opensAt"
+                required
+                defaultValue={watLocal(nominationWindow.opensAt)}
+              />
             </label>
             <label>
-              Link validity
-              <select
-                name="validDays"
-                value={validity}
-                onChange={(event) => setValidity(event.target.value)}
-              >
-                <option value="7">7 days</option>
-                <option value="14">14 days</option>
-                <option value="30">30 days</option>
-                <option value="CUSTOM">Set date and time</option>
-              </select>
+              Nominations Close (WAT)
+              <input
+                type="datetime-local"
+                name="closesAt"
+                required
+                defaultValue={watLocal(nominationWindow.closesAt)}
+              />
             </label>
           </div>
-          {validity === "CUSTOM" && (
-            <label>
-              Link expiry date and time (WAT)
-              <input name="customExpiresAt" type="datetime-local" required />
-              <small>The candidate will see a live hours-and-minutes countdown on every form step.</small>
-            </label>
-          )}
           {error && <p className="error">{error}</p>}
+          {notice && <p className="notice">{notice}</p>}
           <button className="button wide" disabled={busy || !positions.length}>
-            <Link2 />
-            {busy ? "Generating…" : "Generate Secure Link"}
+            <CalendarClock />
+            {busy ? "Saving…" : "Save Nomination Window"}
           </button>
-          {link && (
-            <div className="generated-link">
-              <strong>Copy this link now</strong>
-              <p>The raw link cannot be recovered after leaving this page.</p>
-              <div>
-                <input readOnly value={link} />
-                <button type="button" onClick={copy}>
-                  {copied ? <Check /> : <Copy />}
-                  {copied ? "Copied" : "Copy"}
-                </button>
-              </div>
-            </div>
+          {!positions.length && (
+            <small>Add positions to the election before opening nominations.</small>
           )}
+          <button
+            type="button"
+            className="nomination-close-now"
+            onClick={closeNow}
+            disabled={busy || openState === "closed"}
+          >
+            <LockKeyhole />
+            Close nominations now
+          </button>
+          <div className="generated-link">
+            <strong>Shared candidate link</strong>
+            <p>Publish this one link. Every candidate fills the form through it.</p>
+            <div>
+              <input readOnly value={shareLink} />
+              <button type="button" onClick={copy}>
+                {copied ? <Check /> : <Copy />}
+                {copied ? "Copied" : "Copy"}
+              </button>
+            </div>
+            <a href={shareLink} target="_blank" rel="noreferrer">
+              <Link2 />
+              Open the nomination form
+            </a>
+          </div>
         </form>
         <section className="admin-card nomination-links">
           <h2>Candidate Links</h2>
@@ -285,8 +345,25 @@ export function NominationAdmin({
                     {item.candidateName}
                   </button>
                   <small>
-                    {item.matriculationNumber} · {item.position}
+                    {item.email} · {item.position}
+                    {item.lrcnNumber ? ` · LRCN ${item.lrcnNumber}` : ""}
                   </small>
+                  {item.guarantors.length > 0 && (
+                    <ul className="guarantor-progress">
+                      {item.guarantors.map((g) => (
+                        <li key={g.id}>
+                          <span>
+                            {g.name} — {g.completed ? "completed" : g.invited ? "invited" : "not sent"}
+                          </span>
+                          {!g.completed && (
+                            <button type="button" onClick={() => resendGuarantor(g)}>
+                              Resend link
+                            </button>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                   {item.status === "REJECTED" && item.reviewNote && (
                     <small className="review-note">
                       Correction requested: {item.reviewNote}
@@ -348,7 +425,8 @@ export function NominationAdmin({
                 </small>
                 <h2>{review.candidateName}</h2>
                 <p>
-                  {review.matriculationNumber} · {review.position}
+                  {review.email} · {review.position}
+                  {review.lrcnNumber ? ` · LRCN ${review.lrcnNumber}` : " · Not LRCN certified"}
                 </p>
               </div>
               <button
@@ -375,8 +453,8 @@ export function NominationAdmin({
               )}
               <dl>
                 <ReviewItem label="Phone" value={review.phone} />
-                <ReviewItem label="Part" value={review.level} />
-                <ReviewItem label="CGPA" value={review.cgpa} />
+                <ReviewItem label="Current Position at Place of Work" value={review.currentPosition || "—"} />
+                <ReviewItem label="LRCN Certified" value={review.lrcnNumber ? `Yes — ${review.lrcnNumber}` : "No"} />
                 <ReviewItem label="Permanent Home Address" value={review.permanentAddress} />
                 <ReviewItem label="PKA" value={review.pka || "—"} />
                 <ReviewItem label="Slogan" value={review.tagline} />
@@ -403,8 +481,8 @@ export function NominationAdmin({
               />
               <DocumentLink
                 label="Academic Transcript"
-                name={review.transcriptName}
-                data={review.transcriptData}
+                name={review.identificationName}
+                data={review.identificationData}
               />
               <DocumentLink
                 label="Signature"

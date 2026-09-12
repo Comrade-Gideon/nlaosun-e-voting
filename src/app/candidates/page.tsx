@@ -31,5 +31,5 @@ export default async function CandidatesPage() {
     orderBy: { name: "asc" },
   });
   candidates.sort((left, right) => compareNalissOffices(left.position, right.position) || left.name.localeCompare(right.name));
-  return <><SiteHeader/><main className="page"><header className="page-title"><h1><Users/>Meet the Candidates</h1><p>Explore the students contesting in the NALISS 2026 departmental election. Review their manifestos and profiles before you cast your vote.</p></header><CandidateDirectory candidates={candidates}/></main><SiteFooter/></>;
+  return <><SiteHeader/><main className="page"><header className="page-title"><h1><Users/>Meet the Candidates</h1><p>Explore the professionals contesting in the 2026 NLA Osun State Chapter election. Review their manifestos and profiles before you cast your vote.</p></header><CandidateDirectory candidates={candidates}/></main><SiteFooter/></>;
 }

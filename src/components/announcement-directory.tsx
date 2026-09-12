@@ -57,11 +57,11 @@ export function AnnouncementDirectory({ posts }: { posts: Post[] }) {
         <div className="feature-meta"><span>{featured.category}</span><small>Featured story</small></div>
         <h2>{featured.title}</h2>
         <p>{excerpt(featured.body, 280)}</p>
-        <div className="feature-footer"><div className="feature-author"><b>NA</b><span><strong>NALISS Communications</strong><small>{formatDate(featured.publishedAt)} · 5 min read</small></span></div><Link href={`/announcements/${featured.id}`}>Read More <ArrowRight /></Link></div>
+        <div className="feature-footer"><div className="feature-author"><b>NA</b><span><strong>NLA Osun Communications</strong><small>{formatDate(featured.publishedAt)} · 5 min read</small></span></div><Link href={`/announcements/${featured.id}`}>Read More <ArrowRight /></Link></div>
       </div>
     </article> : <section className="announcement-empty"><Search /><h2>No matching posts</h2><p>Try another search term or category.</p></section>}
 
-    {featured && <><div className="announcement-latest-title"><div><h2>Latest from NALISS</h2><p>Published announcements and community stories</p></div><span>Showing {remaining.length} published {remaining.length === 1 ? "post" : "posts"}</span></div>
+    {featured && <><div className="announcement-latest-title"><div><h2>Latest from NLA Osun</h2><p>Published announcements and community stories</p></div><span>Showing {remaining.length} published {remaining.length === 1 ? "post" : "posts"}</span></div>
       <div className="announcement-card-grid">{visible.map(post => { const { tone, Icon } = categoryStyle(post.category); return <article className="announcement-tile" key={post.id}>
         <div className={`announcement-tile-art ${tone}`}>{post.featuredImage ? <Image unoptimized fill sizes="(max-width: 760px) 100vw, 33vw" src={post.featuredImage} alt="" /> : <Icon />}</div>
         <div className="announcement-tile-copy"><span className={`category-badge ${tone}`}>{post.category}</span><h3>{post.title}</h3><p>{excerpt(post.body, 135)}</p><div><small>{formatDate(post.publishedAt)}</small><Link href={`/announcements/${post.id}`}>Read More <ArrowRight /></Link></div></div>

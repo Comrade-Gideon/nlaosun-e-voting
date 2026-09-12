@@ -12,7 +12,7 @@ export default function NotFound() {
       <h1>Page Not Found</h1>
       <p>Sorry, we could not find the page you are looking for. It may have been moved, deleted, or the address may be incorrect.</p>
       <div className="not-found-actions"><Link className="button" href="/"><Home />Back to Home</Link><Link href="/announcements">Return to Announcements <ArrowRight /></Link></div>
-      <div className="not-found-help"><CircleHelp />Need help? Contact the NALISS support team.</div>
+      <div className="not-found-help"><CircleHelp />Need help? Contact the Election Committee support team.</div>
     </main>
     <SiteFooter />
   </>;

@@ -60,7 +60,7 @@ export function Ballot({
     <main className="ballot-page">
       <header>
         <b>
-          NALISS <small>Electoral Commission</small>
+          NLA Osun <small>Election Committee</small>
         </b>
         <div className="ballot-voter">
           <span>

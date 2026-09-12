@@ -33,12 +33,12 @@ export default async function AnnouncementPage({ params }: { params: Promise<{ i
           <span className="article-category"><Newspaper />{post.category}</span>
           <h1>{post.title}</h1>
           {lead && <p className="article-intro">{renderMarkdownInline(lead)}</p>}
-          <div className="article-byline-row"><div className="article-author"><b>NA</b><span><strong>NALISS Communications</strong><small>Published {published} · 5 min read</small></span></div><ArticleShare title={post.title} /></div>
+          <div className="article-byline-row"><div className="article-author"><b>NA</b><span><strong>NLA Osun Communications</strong><small>Published {published} · 5 min read</small></span></div><ArticleShare title={post.title} /></div>
           <div className="article-hero-media">{post.featuredImage ? <Image unoptimized fill priority sizes="(max-width: 800px) 100vw, 800px" src={post.featuredImage} alt="" /> : <><div><Megaphone /></div><span>Featured</span></>}</div>
           <div className="article-body"><MarkdownContent source={remainder} /></div>
         </article>
 
-        <aside className="related-announcements"><h2>Related Announcements</h2><p>Continue exploring NALISS updates</p>{related.length ? related.map(item => <Link href={`/announcements/${item.id}`} key={item.id}><strong>{item.title}</strong><small>{item.publishedAt?.toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric", timeZone: "Africa/Lagos" })}</small></Link>) : <small>No other published updates yet.</small>}</aside>
+        <aside className="related-announcements"><h2>Related Announcements</h2><p>Continue exploring NLA Osun updates</p>{related.length ? related.map(item => <Link href={`/announcements/${item.id}`} key={item.id}><strong>{item.title}</strong><small>{item.publishedAt?.toLocaleDateString("en-NG", { day: "numeric", month: "short", year: "numeric", timeZone: "Africa/Lagos" })}</small></Link>) : <small>No other published updates yet.</small>}</aside>
       </div>
       <section className="article-cta"><div><h2>Get ready to make your voice heard</h2><p>Verify your identity early and be ready when voting opens.</p></div><Link href="/login">Login / Vote <ArrowRight /></Link></section>
     </main>

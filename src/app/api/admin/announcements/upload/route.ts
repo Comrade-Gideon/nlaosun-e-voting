@@ -1,31 +1,44 @@
-import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
-import { publicBlobToken } from "@/lib/blob-storage";
+import { presignPut, publicBucket, publicUrlFor } from "@/lib/r2";
 
+type UploadRequest = { key?: string; contentType?: string; size?: number };
+
+const PREFIX = "announcements/";
+const TYPES = ["image/png", "image/jpeg", "image/webp"];
+const MAX_BYTES = 5_000_000;
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+/**
+ * Presigned PUT into the public R2 bucket. Replaces Vercel Blob's handleUpload,
+ * which has no R2 equivalent: the browser uploads straight to the bucket and the
+ * caller stores the returned public URL.
+ */
 export async function POST(request: Request) {
   if (!(await isAdminAuthenticated()))
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-  const body = (await request.json().catch(() => null)) as HandleUploadBody | null;
-  if (!body)
+
+  const body = (await request.json().catch(() => null)) as UploadRequest | null;
+  if (!body?.key || !body.contentType || !body.size)
     return NextResponse.json({ message: "Invalid upload request." }, { status: 400 });
+
   try {
-    const result = await handleUpload({
-      request,
-      body,
-      token: publicBlobToken(),
-      onBeforeGenerateToken: async (pathname) => {
-        if (!pathname.startsWith("announcements/"))
-          throw new Error("This upload path is not allowed.");
-        return {
-          allowedContentTypes: ["image/png", "image/jpeg", "image/webp"],
-          maximumSizeInBytes: 5_000_000,
-          validUntil: Date.now() + 15 * 60_000,
-          addRandomSuffix: true,
-        };
-      },
+    if (!body.key.startsWith(PREFIX) || body.key.includes(".."))
+      throw new Error("This upload path is not allowed.");
+    if (!TYPES.includes(body.contentType))
+      throw new Error("Upload a PNG, JPG or WEBP image.");
+    if (body.size > MAX_BYTES)
+      throw new Error(`Image must be ${Math.round(MAX_BYTES / 1_000_000)}MB or smaller.`);
+
+    const presignedUrl = await presignPut({
+      bucket: publicBucket(),
+      key: body.key,
+      contentType: body.contentType,
+      expiresInSeconds: 900,
     });
-    return NextResponse.json(result);
+    return NextResponse.json({ presignedUrl, url: publicUrlFor(body.key) });
   } catch (error) {
     return NextResponse.json(
       { message: error instanceof Error ? error.message : "Upload failed." },

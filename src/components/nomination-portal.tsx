@@ -15,12 +15,12 @@ import {
   ShieldCheck,
   Upload,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { uploadViaPresignedUrl } from "@/lib/upload-client";
 
 type Draft = {
   phone: string;
-  level: string;
-  cgpa: string;
+  currentPosition: string;
   permanentAddress: string;
   pka: string;
   tagline: string;
@@ -29,19 +29,22 @@ type Draft = {
   mission: string;
   vision: string;
   priorities: string[];
+  guarantors: { name: string; email: string }[];
   passportData: string | null;
   passportName: string | null;
   studentIdData: string | null;
   studentIdName: string | null;
-  transcriptData: string | null;
-  transcriptName: string | null;
+  identificationData: string | null;
+  identificationName: string | null;
   signatureData: string | null;
   signatureName: string | null;
   declarationsAccepted: boolean;
 };
 type Invite = {
   candidateName: string;
-  matriculationNumber: string;
+  email: string;
+  lrcnCertified: boolean;
+  lrcnNumber: string;
   position: { id: string; title: string };
   uploadId: string;
   expiresAt: string;
@@ -52,10 +55,11 @@ type Invite = {
 type Receipt = {
   receipt: string;
   candidateName: string;
-  matriculationNumber: string;
+  email: string;
+  lrcnCertified: boolean;
+  lrcnNumber: string;
   position: string;
-  level: string;
-  cgpa: string;
+  currentPosition: string;
   permanentAddress: string;
   phone: string;
   pka: string;
@@ -66,13 +70,13 @@ type Receipt = {
   mission: string;
   vision: string;
   priorities: string[];
+  guarantors?: { name: string; email: string; sent: boolean }[];
   submittedAt: string;
 };
 type LinkState = { title: string; message: string; redirect: boolean };
 const blank: Draft = {
   phone: "",
-  level: "",
-  cgpa: "",
+  currentPosition: "",
   permanentAddress: "",
   pka: "",
   tagline: "",
@@ -81,12 +85,16 @@ const blank: Draft = {
   mission: "",
   vision: "",
   priorities: ["", "", ""],
+  guarantors: [
+    { name: "", email: "" },
+    { name: "", email: "" },
+  ],
   passportData: null,
   passportName: null,
   studentIdData: null,
   studentIdName: null,
-  transcriptData: null,
-  transcriptName: null,
+  identificationData: null,
+  identificationName: null,
   signatureData: null,
   signatureName: null,
   declarationsAccepted: false,
@@ -132,7 +140,15 @@ async function responseBody(response: Response) {
   }
 }
 
-export function NominationPortal({ token }: { token: string }) {
+type StartPosition = { id: string; title: string };
+
+export function NominationPortal({
+  positions,
+  closesAt,
+}: {
+  positions: StartPosition[];
+  closesAt: string;
+}) {
   const router = useRouter();
   const [invite, setInvite] = useState<Invite | null>(null);
   const [data, setData] = useState<Draft>(blank);
@@ -146,6 +162,10 @@ export function NominationPortal({ token }: { token: string }) {
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [passportPreview, setPassportPreview] = useState<string | null>(null);
   const [invalid, setInvalid] = useState<LinkState | null>(null);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "failed">("idle");
+  const [savedAt, setSavedAt] = useState<string>("");
+  // No cookie yet: the shared link lands every candidate on the start form.
+  const [needsStart, setNeedsStart] = useState(false);
   useEffect(
     () => () => {
       if (passportPreview) URL.revokeObjectURL(passportPreview);
@@ -160,13 +180,17 @@ export function NominationPortal({ token }: { token: string }) {
       timers.push(window.setTimeout(() => router.push("/"), 4000));
     async function load(attempt = 0) {
       try {
-        const response = await fetch(`/api/nominations/${token}`, {
+        const response = await fetch("/api/nominations/session", {
           signal: controller.signal,
         });
         const body = await responseBody(response);
         if (cancelled) return;
         if (response.status === 503 && attempt < 4) {
           timers.push(window.setTimeout(() => load(attempt + 1), 3000));
+          return;
+        }
+        if (response.status === 404 && body.code === "NO_SESSION") {
+          setNeedsStart(true);
           return;
         }
         if (!response.ok) {
@@ -197,6 +221,11 @@ export function NominationPortal({ token }: { token: string }) {
             "",
             "",
           ].slice(0, 3),
+          guarantors: [
+            ...(inviteBody.draft.guarantors ?? []),
+            { name: "", email: "" },
+            { name: "", email: "" },
+          ].slice(0, 2),
         });
         if (inviteBody.draft.declarationsAccepted)
           setAccepted(declarations.map(() => true));
@@ -228,14 +257,14 @@ export function NominationPortal({ token }: { token: string }) {
       controller.abort();
       timers.forEach(clearTimeout);
     };
-  }, [router, token]);
+  }, [router]);
   function field<K extends keyof Draft>(key: K, value: Draft[K]) {
     setData((current) => ({ ...current, [key]: value }));
     setNotice("");
     setError("");
   }
   async function attach(
-    key: "passport" | "studentId" | "transcript" | "signature",
+    key: "passport" | "studentId" | "identification" | "signature",
     file?: File,
   ) {
     if (!file) return;
@@ -251,43 +280,19 @@ export function NominationPortal({ token }: { token: string }) {
           ? ["image/png", "image/jpeg"]
           : ["application/pdf", "image/png", "image/jpeg"],
       );
-      const pathname = `nominations/${invite.uploadId}/${key}/${Date.now()}-${safeUploadName(file.name)}`;
-      const authorizationResponse = await fetch(
-        `/api/nominations/${token}/upload`,
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            pathname,
-            field: key,
-            contentType: file.type,
-            size: file.size,
-          }),
-        },
-      );
-      const authorization = await responseBody(authorizationResponse);
-      if (!authorizationResponse.ok || !authorization.presignedUrl)
-        throw new Error(
-          authorization.message || "Upload authorization failed.",
-        );
-      const uploadResponse = await fetch(authorization.presignedUrl, {
-        method: "PUT",
-        headers: {
-          "x-vercel-blob-access": "private",
-          "x-content-type": file.type,
-        },
-        body: file,
+      const stored = await uploadViaPresignedUrl({
+        endpoint: "/api/nominations/session/upload",
+        key: `nominations/${invite.uploadId}/${key}/${Date.now()}-${safeUploadName(file.name)}`,
+        field: key,
+        file,
       });
-      const blob = await responseBody(uploadResponse);
-      if (!uploadResponse.ok || !blob.url)
-        throw new Error(blob.message || "File upload failed.");
       if (key === "passport") {
         if (passportPreview) URL.revokeObjectURL(passportPreview);
         setPassportPreview(URL.createObjectURL(file));
       }
       setData((current) => ({
         ...current,
-        [`${key}Data`]: blob.url,
+        [`${key}Data`]: stored.key,
         [`${key}Name`]: file.name,
       }));
       setNotice(`${file.name} uploaded securely.`);
@@ -306,7 +311,7 @@ export function NominationPortal({ token }: { token: string }) {
         ...data,
         declarationsAccepted: accepted.every(Boolean),
       };
-      const response = await fetch(`/api/nominations/${token}`, {
+      const response = await fetch("/api/nominations/session", {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
@@ -314,32 +319,47 @@ export function NominationPortal({ token }: { token: string }) {
       const body = await responseBody(response);
       if (!response.ok) {
         setError(body.message || "Draft could not be saved. Please try again.");
+        setSaveState("failed");
         return false;
       }
       if (!silent) setNotice("Draft saved securely.");
+      setSaveState("saved");
+      setSavedAt(new Intl.DateTimeFormat("en-NG", { hour: "numeric", minute: "2-digit", timeZone: "Africa/Lagos" }).format(new Date()));
       return true;
     } catch {
       setError(
         "Could not reach the nomination server. Check your connection and try again.",
       );
+      setSaveState("failed");
       return false;
     } finally {
       setBusy(false);
     }
   }
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (!invite || receipt || invalid) return;
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    setSaveState("saving");
+    const timer = window.setTimeout(() => { void saveDraft(true); }, 1800);
+    return () => window.clearTimeout(timer);
+    // saveDraft reads the latest data through closure on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, accepted, invite, receipt, invalid]);
+
   async function next() {
     setError("");
     if (
       step === 1 &&
       (!data.phone ||
-        !data.level ||
-        !data.cgpa ||
-        data.permanentAddress.trim().length < 10 ||
-        Number(data.cgpa) < 0 ||
-        Number(data.cgpa) > 5)
+        !data.currentPosition ||
+        data.permanentAddress.trim().length < 10)
     ) {
       setError(
-        "Enter your phone number, permanent home address, CGPA (0.00–5.00), and select Part 1, Part 2 or Part 3.",
+        "Enter your phone number, current position at your place of work, and your permanent home address.",
       );
       return;
     }
@@ -370,7 +390,8 @@ export function NominationPortal({ token }: { token: string }) {
     if (busy) return;
     if (
       !data.studentIdData ||
-      !data.transcriptData ||
+      data.guarantors.filter((g) => g.name.trim() && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(g.email.trim())).length < 2 ||
+      !data.identificationData ||
       !data.signatureData ||
       !accepted.every(Boolean)
     ) {
@@ -381,7 +402,7 @@ export function NominationPortal({ token }: { token: string }) {
     }
     setBusy(true);
     try {
-      const response = await fetch(`/api/nominations/${token}`, {
+      const response = await fetch("/api/nominations/session", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ ...data, declarationsAccepted: true }),
@@ -416,6 +437,20 @@ export function NominationPortal({ token }: { token: string }) {
             </Link>
           )}
         </section>
+      </NominationShell>
+    );
+  if (needsStart)
+    return (
+      <NominationShell>
+        <NominationStart
+          positions={positions}
+          closesAt={closesAt}
+          onStarted={() => {
+            setNeedsStart(false);
+            router.refresh();
+            window.location.reload();
+          }}
+        />
       </NominationShell>
     );
   if (!invite)
@@ -465,8 +500,8 @@ export function NominationPortal({ token }: { token: string }) {
                 <input value={invite.candidateName} readOnly />
               </label>
               <label>
-                Matriculation Number
-                <input value={invite.matriculationNumber} readOnly />
+                Email Address
+                <input value={invite.email} readOnly />
               </label>
             </div>
             <label>
@@ -488,38 +523,27 @@ export function NominationPortal({ token }: { token: string }) {
                 rows={3}
               />
               <small>
-                Private: visible only to you, the Electoral Commission, and on
+                Private: visible only to you, the Election Committee, and on
                 your nomination printout.
               </small>
             </label>
             <label>
-              CGPA *
+              Current Position at Place of Work *
               <input
-                value={data.cgpa}
-                onChange={(e) => field("cgpa", e.target.value)}
-                inputMode="decimal"
-                placeholder="e.g. 4.25"
-                maxLength={4}
+                value={data.currentPosition}
+                onChange={(e) => field("currentPosition", e.target.value)}
+                placeholder="e.g. Principal Librarian, Osun State Library Board"
+                maxLength={160}
               />
-              <small>
-                Private: shown only on this form, its printout, and to the
-                Electoral Commission.
-              </small>
             </label>
-            <fieldset className="level-options">
-              <legend>Current Part of Study *</legend>
-              {["Part 1", "Part 2", "Part 3"].map((level) => (
-                <label key={level}>
-                  <input
-                    type="radio"
-                    name="level"
-                    checked={data.level === level}
-                    onChange={() => field("level", level)}
-                  />
-                  {level}
-                </label>
-              ))}
-            </fieldset>
+            <div className="nomination-lrcn">
+              <span>LRCN Certification</span>
+              <p>
+                {invite.lrcnCertified
+                  ? `You indicated that you are LRCN certified, registration number ${invite.lrcnNumber}.`
+                  : "You indicated that you are not LRCN certified. This does not affect your nomination."}
+              </p>
+            </div>
           </section>
         )}
         {step === 2 && (
@@ -532,7 +556,7 @@ export function NominationPortal({ token }: { token: string }) {
               preview={
                 passportPreview ||
                 (data.passportData
-                  ? `/api/nominations/${token}/file?field=passport`
+                  ? "/api/nominations/session/file?field=passport"
                   : null)
               }
             />
@@ -615,16 +639,20 @@ export function NominationPortal({ token }: { token: string }) {
               </p>
             </div>
             <FileUpload
-              title="Student ID Card or Any Means of Studentship Identification *"
-              note="PDF, JPG or PNG · Max 4MB"
+              title="Membership Evidence *"
+              note="Your NLA membership card or certificate · PDF, JPG or PNG · Max 4MB"
               name={data.studentIdName}
               onFile={(file) => attach("studentId", file)}
             />
             <FileUpload
-              title="Academic Transcript *"
-              note="PDF, JPG or PNG · Max 4MB"
-              name={data.transcriptName}
-              onFile={(file) => attach("transcript", file)}
+              title="Any Means of Identification *"
+              note="National ID, driver&apos;s licence, international passport or voter&apos;s card · PDF, JPG or PNG · Max 4MB"
+              name={data.identificationName}
+              onFile={(file) => attach("identification", file)}
+            />
+            <GuarantorFields
+              guarantors={data.guarantors}
+              onChange={(next) => field("guarantors", next)}
             />
             <div className="declaration-box">
               <h2>Declaration & Undertaking</h2>
@@ -659,16 +687,20 @@ export function NominationPortal({ token }: { token: string }) {
                   <dd>{invite.candidateName}</dd>
                 </div>
                 <div>
-                  <dt>Matriculation No.</dt>
-                  <dd>{invite.matriculationNumber}</dd>
+                  <dt>Email</dt>
+                  <dd>{invite.email}</dd>
                 </div>
                 <div>
                   <dt>Position</dt>
                   <dd>{invite.position.title}</dd>
                 </div>
                 <div>
-                  <dt>Part</dt>
-                  <dd>{data.level}</dd>
+                  <dt>LRCN Certified</dt>
+                  <dd>{invite.lrcnCertified ? `Yes — ${invite.lrcnNumber}` : "No"}</dd>
+                </div>
+                <div>
+                  <dt>Current Position</dt>
+                  <dd>{data.currentPosition}</dd>
                 </div>
               </dl>
               <p>
@@ -682,15 +714,12 @@ export function NominationPortal({ token }: { token: string }) {
         {error && <p className="nomination-error">{error}</p>}
         {notice && <p className="nomination-notice">{notice}</p>}
         <div className="nomination-actions">
-          <button
-            type="button"
-            className="save-draft"
-            onClick={() => saveDraft()}
-            disabled={busy}
-          >
-            <Save />
-            Save Draft
-          </button>
+          <span className={`autosave-state ${saveState}`} aria-live="polite">
+            {saveState === "saving" && <><span className="loading-dot" />Saving…</>}
+            {saveState === "saved" && <><CheckCircle2 />Saved{savedAt ? ` at ${savedAt}` : ""} — you can close this and come back</>}
+            {saveState === "failed" && <><Save />Not saved — check your connection</>}
+            {saveState === "idle" && <><Save />Your answers save automatically</>}
+          </span>
           <div>
             {step > 1 && (
               <button
@@ -729,20 +758,232 @@ export function NominationPortal({ token }: { token: string }) {
   );
 }
 
+/**
+ * Entry step for the shared nomination link. Every candidate opens the same URL,
+ * so this is where they identify themselves; the server then binds the resulting
+ * nomination to this browser with a session cookie.
+ */
+function NominationStart({
+  positions,
+  closesAt,
+  onStarted,
+}: {
+  positions: StartPosition[];
+  closesAt: string;
+  onStarted: () => void;
+}) {
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [certified, setCertified] = useState<"yes" | "no" | "">("");
+
+  async function resume(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    const response = await fetch("/api/nominations/resume", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: new FormData(event.currentTarget).get("email") }),
+    });
+    const body = await responseBody(response);
+    if (response.ok) return onStarted();
+    setError(body.message ?? "That nomination could not be reopened.");
+    setBusy(false);
+  }
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    const form = new FormData(event.currentTarget);
+    const response = await fetch("/api/nominations/start", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        candidateName: form.get("candidateName"),
+        email: form.get("email"),
+        positionId: form.get("positionId"),
+        lrcnCertified: certified === "yes",
+        lrcnNumber: certified === "yes" ? form.get("lrcnNumber") : undefined,
+      }),
+    });
+    const body = await responseBody(response);
+    if (response.ok) return onStarted();
+    setError(body.message ?? "Your nomination could not be started.");
+    setBusy(false);
+  }
+
+  return (
+    <section className="nomination-start">
+      <div className="nomination-card-title">
+        <ShieldCheck />
+        <div>
+          <h1>Start Your Nomination</h1>
+          <p>
+            Nominations close on{" "}
+            <strong>
+              {new Intl.DateTimeFormat("en-NG", {
+                dateStyle: "full",
+                timeStyle: "short",
+                timeZone: "Africa/Lagos",
+              }).format(new Date(closesAt))}{" "}
+              WAT
+            </strong>
+            . Enter your details to open the nomination form.
+          </p>
+        </div>
+      </div>
+      <form onSubmit={submit}>
+        <label>
+          Full Name
+          <input name="candidateName" required minLength={3} maxLength={120} placeholder="e.g. Amaka Chukwu" />
+        </label>
+        <label>
+          Email Address
+          <input name="email" type="email" required maxLength={160} placeholder="you@example.com" />
+          <small>Used to identify your nomination and to reach you about it.</small>
+        </label>
+        <fieldset className="nomination-lrcn-choice">
+          <legend>Are you LRCN certified?</legend>
+          <label>
+            <input
+              type="radio"
+              name="lrcnCertified"
+              value="yes"
+              checked={certified === "yes"}
+              onChange={() => setCertified("yes")}
+              required
+            />
+            Yes
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="lrcnCertified"
+              value="no"
+              checked={certified === "no"}
+              onChange={() => setCertified("no")}
+            />
+            No
+          </label>
+        </fieldset>
+        {certified === "yes" && (
+          <label>
+            LRCN Registration Number
+            <input name="lrcnNumber" required minLength={3} maxLength={60} placeholder="e.g. LRCN/2019/04471" />
+          </label>
+        )}
+        <label>
+          Position You Are Contesting
+          <select name="positionId" required defaultValue="">
+            <option value="" disabled>
+              Select position
+            </option>
+            {positions.map((position) => (
+              <option value={position.id} key={position.id}>
+                {position.title}
+              </option>
+            ))}
+          </select>
+        </label>
+        {error && <p className="error">{error}</p>}
+        <button className="button wide" disabled={busy || !positions.length}>
+          {busy ? "Starting…" : "Start Nomination"}
+          <ArrowRight />
+        </button>
+        <small>
+          Everything you type is saved automatically. You can close this page at
+          any point and come back to finish it later.
+        </small>
+      </form>
+
+      <div className="nomination-resume">
+        <h2>Already started?</h2>
+        <p>Enter the email address you used and your saved form will reopen — on any device.</p>
+        <form onSubmit={resume}>
+          <label>
+            Email Address
+            <input name="email" type="email" required maxLength={160} placeholder="you@example.com" />
+          </label>
+          <button type="submit" className="button" disabled={busy}>
+            {busy ? "Opening…" : "Continue"}
+            <ArrowRight />
+          </button>
+        </form>
+      </div>
+    </section>
+  );
+}
+
+
+/**
+ * Two guarantors are required. The candidate supplies only a name and an email
+ * address for each; every other guarantor detail is filled in by the guarantor
+ * themselves through a private link emailed on submission.
+ */
+function GuarantorFields({
+  guarantors,
+  onChange,
+}: {
+  guarantors: { name: string; email: string }[];
+  onChange: (next: { name: string; email: string }[]) => void;
+}) {
+  function update(index: number, key: "name" | "email", value: string) {
+    onChange(guarantors.map((item, i) => (i === index ? { ...item, [key]: value } : item)));
+  }
+  return (
+    <div className="guarantor-fields">
+      <h2>Guarantors</h2>
+      <p>
+        Provide two guarantors. When you submit this form, each one receives an
+        email with a private link to supply their institution, phone number,
+        letter of recommendation and signature. You cannot complete their
+        sections on their behalf.
+      </p>
+      {guarantors.map((item, index) => (
+        <fieldset key={index}>
+          <legend>Guarantor {index + 1} *</legend>
+          <div className="nomination-two">
+            <label>
+              Full Name
+              <input
+                value={item.name}
+                onChange={(event) => update(index, "name", event.target.value)}
+                placeholder="e.g. Dr. Bola Adeyemi"
+                maxLength={120}
+              />
+            </label>
+            <label>
+              Email Address
+              <input
+                type="email"
+                value={item.email}
+                onChange={(event) => update(index, "email", event.target.value)}
+                placeholder="guarantor@example.com"
+                maxLength={160}
+              />
+            </label>
+          </div>
+        </fieldset>
+      ))}
+    </div>
+  );
+}
+
 function NominationShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="nomination-page">
       <header>
         <div className="nomination-logo">
           <Image
-            src="/naliss-logo.png"
+            src="/nla-osun-logo.png"
             width={64}
             height={64}
-            alt="NALISS logo"
+            alt="Nigerian Library Association logo"
             priority
           />
           <span>
-            <b>NALISS</b>
+            <b>NLA Osun State Chapter</b>
             <small>CEC Election — Nomination Portal</small>
           </span>
         </div>
@@ -761,12 +1002,12 @@ function NominationShell({ children }: { children: React.ReactNode }) {
       <footer>
         <Image
           className="nomination-footer-logo"
-          src="/naliss-logo.png"
+          src="/nla-osun-logo.png"
           width={32}
           height={32}
-          alt="NALISS logo"
+          alt="Nigerian Library Association logo"
         />
-        © 2026 NALISS · CEC Election{" "}
+        © 2026 NLA Osun State Chapter · Election Committee{" "}
         <span>
           <LockKeyhole />
           Your information is protected and handled confidentially.
@@ -934,14 +1175,14 @@ function NominationReceipt({ receipt }: { receipt: Receipt }) {
           <header>
             <div>
               <Image
-                className="receipt-naliss-logo"
-                src="/naliss-logo.png"
+                className="receipt-brand-logo"
+                src="/nla-osun-logo.png"
                 width={56}
                 height={56}
-                alt="NALISS logo"
+                alt="Nigerian Library Association logo"
               />
               <span>
-                <b>NALISS</b>
+                <b>NLA Osun State Chapter</b>
                 <small>Candidate Nomination Acknowledgement</small>
               </span>
             </div>
@@ -964,16 +1205,16 @@ function NominationReceipt({ receipt }: { receipt: Receipt }) {
           </div>
           <dl>
             <div>
-              <dt>Matriculation Number</dt>
-              <dd>{receipt.matriculationNumber}</dd>
+              <dt>Email</dt>
+              <dd>{receipt.email}</dd>
             </div>
             <div>
-              <dt>Part of Study</dt>
-              <dd>{receipt.level}</dd>
+              <dt>LRCN Certified</dt>
+              <dd>{receipt.lrcnCertified ? `Yes — ${receipt.lrcnNumber}` : "No"}</dd>
             </div>
             <div>
-              <dt>CGPA</dt>
-              <dd>{receipt.cgpa}</dd>
+              <dt>Current Position</dt>
+              <dd>{receipt.currentPosition}</dd>
             </div>
             <div>
               <dt>Phone Number</dt>

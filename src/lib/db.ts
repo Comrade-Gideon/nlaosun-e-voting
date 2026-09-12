@@ -24,7 +24,11 @@ export function isTransientDatabaseError(error: unknown) {
   return transientMessages.some(text => value.message?.includes(text));
 }
 
-const RETRY_DELAYS_MS = [400, 1_200, 2_500];
+// Budgeted for a Neon scale-to-zero resume, which usually lands within a few
+// seconds but can run longer on a fully cold branch. The previous 4.1s ceiling
+// expired mid-wake-up, so `next build` prerendered pages with no election data
+// instead of waiting for the compute to come back.
+const RETRY_DELAYS_MS = [500, 1_500, 3_000, 6_000];
 
 /**
  * Neon suspends idle compute, so the first query after a pause can fail while the
