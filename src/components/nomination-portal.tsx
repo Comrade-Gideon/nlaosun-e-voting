@@ -212,6 +212,11 @@ export function NominationPortal({
         }
         const inviteBody = body as Invite;
         setInvite(inviteBody);
+        if (window.sessionStorage.getItem("nomination-resumed")) {
+          window.sessionStorage.removeItem("nomination-resumed");
+          setNotice("Welcome back — your saved answers have been restored.");
+          setSaveState("saved");
+        }
         setData({
           ...blank,
           ...inviteBody.draft,
@@ -445,7 +450,8 @@ export function NominationPortal({
         <NominationStart
           positions={positions}
           closesAt={closesAt}
-          onStarted={() => {
+          onStarted={(resumed) => {
+            if (resumed) window.sessionStorage.setItem("nomination-resumed", "1");
             setNeedsStart(false);
             router.refresh();
             window.location.reload();
@@ -770,26 +776,12 @@ function NominationStart({
 }: {
   positions: StartPosition[];
   closesAt: string;
-  onStarted: () => void;
+  onStarted: (resumed: boolean) => void;
 }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [certified, setCertified] = useState<"yes" | "no" | "">("");
 
-  async function resume(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBusy(true);
-    setError("");
-    const response = await fetch("/api/nominations/resume", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: new FormData(event.currentTarget).get("email") }),
-    });
-    const body = await responseBody(response);
-    if (response.ok) return onStarted();
-    setError(body.message ?? "That nomination could not be reopened.");
-    setBusy(false);
-  }
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -808,7 +800,7 @@ function NominationStart({
       }),
     });
     const body = await responseBody(response);
-    if (response.ok) return onStarted();
+    if (response.ok) return onStarted(Boolean(body.resumed));
     setError(body.message ?? "Your nomination could not be started.");
     setBusy(false);
   }
@@ -892,25 +884,12 @@ function NominationStart({
           <ArrowRight />
         </button>
         <small>
-          Everything you type is saved automatically. You can close this page at
-          any point and come back to finish it later.
+          Everything you type is saved automatically. If you have started this
+          form before, entering the same email address brings all your saved
+          answers straight back.
         </small>
       </form>
 
-      <div className="nomination-resume">
-        <h2>Already started?</h2>
-        <p>Enter the email address you used and your saved form will reopen — on any device.</p>
-        <form onSubmit={resume}>
-          <label>
-            Email Address
-            <input name="email" type="email" required maxLength={160} placeholder="you@example.com" />
-          </label>
-          <button type="submit" className="button" disabled={busy}>
-            {busy ? "Opening…" : "Continue"}
-            <ArrowRight />
-          </button>
-        </form>
-      </div>
     </section>
   );
 }

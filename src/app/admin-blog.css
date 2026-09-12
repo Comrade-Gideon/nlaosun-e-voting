@@ -844,12 +844,3 @@ body { font-family: inherit; }
 .autosave-state.failed { color: #b42318; }
 .autosave-state .loading-dot { width: 13px; height: 13px; }
 
-/* Resume panel on the nomination start screen. */
-.nomination-resume { margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--line); }
-.nomination-resume h2 { margin: 0 0 4px; font-size: 17px; }
-.nomination-resume p { margin: 0 0 14px; color: var(--muted); font-size: 13px; }
-.nomination-resume form { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin: 0; }
-.nomination-resume label { flex: 1 1 240px; display: grid; gap: 7px; font-weight: 700; }
-.nomination-resume button { white-space: nowrap; }
-.nomination-switch { display: block; width: 100%; margin-top: 14px; padding: 0; color: var(--brand); background: none; border: 0; font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; text-align: center; }
-@media (max-width: 600px) { .nomination-resume form { flex-direction: column; align-items: stretch; } .nomination-resume button { width: 100%; } }
