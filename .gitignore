@@ -29,3 +29,6 @@ Thumbs.db
 .vercel
 !.env.example
 .env*
+.open-next
+.wrangler
+.dev.vars*

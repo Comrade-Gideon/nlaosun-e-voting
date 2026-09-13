@@ -1,0 +1,37 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Must match the Worker that serves vote.nlaosun.workers.dev. Without this file
+  // Cloudflare generated one per build named after the repository
+  // ("nlaosun-e-voting"), which pointed the self-reference at the wrong Worker.
+  "name": "vote",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-09-11",
+  // nodejs_compat: Prisma's Neon adapter, node:crypto (session hashing), the AWS
+  // SDK used for R2. global_fetch_strictly_public: required by OpenNext.
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  // Keep variables set in the Cloudflare dashboard instead of deleting any that
+  // are not listed here on every deploy. Store credentials as Secrets regardless.
+  "keep_vars": true,
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "vote"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "NEXT_INC_CACHE_R2_BUCKET",
+      "bucket_name": "nlaosun-e-voting-opennext-cache"
+    }
+  ],
+  "images": {
+    "binding": "IMAGES"
+  },
+  "observability": {
+    "enabled": true
+  }
+}
