@@ -2035,3 +2035,32 @@ footer .brand b {
     width: 100%;
   }
 }
+
+/* Ballot header brand: emblem beside the committee name. */
+.ballot-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.ballot-brand img {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+.ballot-brand b {
+  line-height: 1.2;
+}
+@media (max-width: 900px) {
+  .ballot-brand {
+    gap: 10px;
+  }
+  .ballot-brand img {
+    width: 44px;
+    height: 44px;
+  }
+  .ballot-page > header .ballot-brand b {
+    font-size: 18px;
+  }
+}

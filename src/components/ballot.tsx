@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CandidatePhoto } from "@/components/candidate-photo";
@@ -59,9 +60,19 @@ export function Ballot({
   return (
     <main className="ballot-page">
       <header>
-        <b>
-          NLA Osun <small>Election Committee</small>
-        </b>
+        {/* Not a link: a stray tap mid-ballot should not take the voter away. */}
+        <div className="ballot-brand">
+          <Image
+            src="/nla-osun-logo.png"
+            width={56}
+            height={56}
+            alt="Nigerian Library Association emblem"
+            priority
+          />
+          <b>
+            NLA Osun <small>Election Committee</small>
+          </b>
+        </div>
         <div className="ballot-voter">
           <span>
             Welcome, <strong>{voterName}</strong>
