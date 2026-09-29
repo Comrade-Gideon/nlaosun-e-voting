@@ -41,26 +41,27 @@ export function publicBaseUrl() {
   return required("R2_PUBLIC_BASE_URL").replace(/\/+$/, "");
 }
 
-let client: S3Client | undefined;
+// A new client per call rather than a module-level one: on Workers the SDK's
+// HTTP handler can hold a connection opened by an earlier request, which the
+// runtime refuses to reuse ("Cannot perform I/O on behalf of a different
+// request"). Construction is cheap and does no I/O.
 export function r2() {
-  if (!client)
-    client = new S3Client({
-      // R2 ignores the region but the SDK requires one.
-      region: "auto",
-      // From v3.729 the SDK adds a CRC32 checksum to every PutObject. When the
-      // request is presigned rather than sent, that checksum is computed over an
-      // empty body and frozen into the URL as x-amz-checksum-crc32=AAAAAA==, so
-      // R2 rejects the real upload. Only compute checksums where the API demands
-      // one; presigned PUTs then carry no checksum at all.
-      requestChecksumCalculation: "WHEN_REQUIRED",
-      responseChecksumValidation: "WHEN_REQUIRED",
-      endpoint: `https://${required("R2_ACCOUNT_ID")}.r2.cloudflarestorage.com`,
-      credentials: {
-        accessKeyId: required("R2_ACCESS_KEY_ID"),
-        secretAccessKey: required("R2_SECRET_ACCESS_KEY"),
-      },
-    });
-  return client;
+  return new S3Client({
+    // R2 ignores the region but the SDK requires one.
+    region: "auto",
+    // From v3.729 the SDK adds a CRC32 checksum to every PutObject. When the
+    // request is presigned rather than sent, that checksum is computed over an
+    // empty body and frozen into the URL as x-amz-checksum-crc32=AAAAAA==, so
+    // R2 rejects the real upload. Only compute checksums where the API demands
+    // one; presigned PUTs then carry no checksum at all.
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    responseChecksumValidation: "WHEN_REQUIRED",
+    endpoint: `https://${required("R2_ACCOUNT_ID")}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId: required("R2_ACCESS_KEY_ID"),
+      secretAccessKey: required("R2_SECRET_ACCESS_KEY"),
+    },
+  });
 }
 
 /**
