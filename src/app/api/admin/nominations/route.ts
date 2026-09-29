@@ -276,10 +276,10 @@ export async function DELETE(request: Request) {
         { message: "This candidate cannot be deleted because a submitted ballot references them." },
         { status: 409 },
       );
-    await db.$transaction([
-      db.nominationInvite.update({ where: { id }, data: { status: "REVOKED", candidateId: null } }),
-      db.candidate.delete({ where: { id: invite.candidateId } }),
-    ]);
+    await db.$transaction(async (tx) => {
+      await tx.nominationInvite.update({ where: { id }, data: { status: "REVOKED", candidateId: null } });
+      await tx.candidate.delete({ where: { id: invite.candidateId! } });
+    });
     revalidatePath("/candidates");
     revalidatePath("/election");
     revalidatePath("/");

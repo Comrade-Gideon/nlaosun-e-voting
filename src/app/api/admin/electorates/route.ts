@@ -2,13 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { db, withDatabaseRetry } from "@/lib/db";
-import { hashSurname, normalizeMatric } from "@/lib/security";
+import { hashSurname, normalizePhone } from "@/lib/security";
 
 const createSchema = z.object({
   displayName: z.string().trim().min(3).max(150),
-  matriculationNumber: z.string().trim().min(4).max(50),
+  phoneNumber: z.string().trim().min(7).max(30),
   surname: z.string().trim().min(2).max(80),
-  level: z.string().trim().min(1).max(50),
   eligible: z.boolean().default(true),
 });
 const updateSchema = createSchema.partial().extend({
@@ -23,17 +22,17 @@ const unavailable = () => NextResponse.json(
 export async function POST(request: Request) {
   if (!await isAdminAuthenticated()) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   const parsed = createSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ message: "Enter full name, matriculation number, surname, and level/part." }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ message: "Enter full name, phone number, and surname." }, { status: 400 });
   try {
-    const matriculationNumber = normalizeMatric(parsed.data.matriculationNumber);
-    const duplicate = await withDatabaseRetry(() => db.voter.findUnique({ where: { matriculationNumber } }));
-    if (duplicate) return NextResponse.json({ message: "An electorate already exists with this matriculation number." }, { status: 409 });
+    const phoneNumber = normalizePhone(parsed.data.phoneNumber);
+    if (!phoneNumber) return NextResponse.json({ message: "Enter a valid phone number." }, { status: 400 });
+    const duplicate = await withDatabaseRetry(() => db.voter.findUnique({ where: { phoneNumber } }));
+    if (duplicate) return NextResponse.json({ message: "An electorate already exists with this phone number." }, { status: 409 });
     const voter = await withDatabaseRetry(() => db.voter.create({
       data: {
-        matriculationNumber,
+        phoneNumber,
         displayName: parsed.data.displayName,
         surnameNormalizedHash: hashSurname(parsed.data.surname),
-        level: parsed.data.level,
         eligible: parsed.data.eligible,
       },
     }));
@@ -50,17 +49,17 @@ export async function PATCH(request: Request) {
   try {
     const existing = await withDatabaseRetry(() => db.voter.findUnique({ where: { id: parsed.data.id } }));
     if (!existing) return NextResponse.json({ message: "Electorate not found." }, { status: 404 });
-    const matriculationNumber = parsed.data.matriculationNumber ? normalizeMatric(parsed.data.matriculationNumber) : undefined;
-    if (matriculationNumber) {
-      const duplicate = await withDatabaseRetry(() => db.voter.findFirst({ where: { matriculationNumber, id: { not: parsed.data.id } } }));
-      if (duplicate) return NextResponse.json({ message: "Another electorate already uses this matriculation number." }, { status: 409 });
+    const phoneNumber = parsed.data.phoneNumber ? normalizePhone(parsed.data.phoneNumber) : undefined;
+    if (phoneNumber === "") return NextResponse.json({ message: "Enter a valid phone number." }, { status: 400 });
+    if (phoneNumber) {
+      const duplicate = await withDatabaseRetry(() => db.voter.findFirst({ where: { phoneNumber, id: { not: parsed.data.id } } }));
+      if (duplicate) return NextResponse.json({ message: "Another electorate already uses this phone number." }, { status: 409 });
     }
     const voter = await withDatabaseRetry(() => db.voter.update({
       where: { id: parsed.data.id },
       data: {
         displayName: parsed.data.displayName,
-        matriculationNumber,
-        level: parsed.data.level,
+        phoneNumber,
         eligible: parsed.data.eligible,
         ...(parsed.data.surname ? { surnameNormalizedHash: hashSurname(parsed.data.surname) } : {}),
       },

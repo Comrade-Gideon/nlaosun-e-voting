@@ -267,15 +267,26 @@ export function guarantorInviteMessage(details: {
   link: string;
   closesAt: Date;
   origin: string;
+  /** Set when an administrator resends: the email then says it replaces earlier links. */
+  reissuedAt?: Date;
 }) {
   const deadline = new Intl.DateTimeFormat("en-NG", {
     dateStyle: "full",
     timeStyle: "short",
     timeZone: "Africa/Lagos",
   }).format(details.closesAt);
+  // Resent invitations used to be identical apart from the link, so Gmail threaded
+  // them and collapsed each new body as quoted text: guarantors kept clicking the
+  // first (already replaced) link. A distinct subject and opening line stop that.
+  const issued = details.reissuedAt
+    ? new Intl.DateTimeFormat("en-NG", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Africa/Lagos" }).format(details.reissuedAt)
+    : "";
+  const replaces = issued
+    ? `This is a new link issued on ${issued} WAT. It replaces any guarantor link sent to you earlier, which no longer works.`
+    : "";
 
   const text = `Dear ${details.guarantorName},
-
+${replaces ? `\n${replaces}\n` : ""}
 ${details.candidateName} has named you as a guarantor for their nomination as ${details.position} in the Nigerian Library Association, Osun State Chapter election.
 
 Please complete your guarantor section using the link below. It is unique to you and should not be forwarded.
@@ -290,10 +301,11 @@ NLA Osun State Chapter Election Committee`;
 
   const html = brandedEmail({
     origin: details.origin,
-    heading: `You have been named a guarantor`,
-    preheader: `${details.candidateName} has named you as a guarantor.`,
+    heading: issued ? `Your new guarantor link` : `You have been named a guarantor`,
+    preheader: replaces || `${details.candidateName} has named you as a guarantor.`,
     bodyHtml: `
-        <p style="margin:0 0 14px;">Dear ${escapeHtml(details.guarantorName)},</p>
+        <p style="margin:0 0 14px;">Dear ${escapeHtml(details.guarantorName)},</p>${replaces ? `
+        <p style="margin:0 0 14px;padding:12px 14px;background:#fff7e0;border:1px solid #f0d58a;border-radius:8px;"><strong>${escapeHtml(replaces)}</strong></p>` : ""}
         <p style="margin:0 0 14px;"><strong>${escapeHtml(details.candidateName)}</strong> has named you as a guarantor for their nomination as <strong>${escapeHtml(details.position)}</strong>.</p>
         <p style="margin:0 0 20px;">Please complete your guarantor section using the button below. The link is unique to you and should not be forwarded.</p>
         <p style="margin:0 0 20px;"><a href="${escapeHtml(details.link)}" style="display:inline-block;padding:13px 24px;background:#0f7a3d;color:#ffffff;border-radius:8px;text-decoration:none;font-weight:700;">Complete Guarantor Form</a></p>
@@ -303,7 +315,9 @@ NLA Osun State Chapter Election Committee`;
   });
 
   return {
-    subject: `Guarantor request: ${details.candidateName} — ${details.position}`,
+    subject: issued
+      ? `New guarantor link (${issued}): ${details.candidateName} — ${details.position}`
+      : `Guarantor request: ${details.candidateName} — ${details.position}`,
     text,
     html,
   };

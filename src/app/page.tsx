@@ -85,9 +85,16 @@ export default async function HomePage() {
 
       {election && <section className="home-facts">
         <dl>
-          <div><CalendarDays /><dt>Election Date</dt><dd>{formatWatDate(election.opensAt)}</dd></div>
-          <div><Clock /><dt>Voting Opens</dt><dd>{formatWatTime(election.opensAt)}</dd></div>
-          <div><Clock /><dt>Voting Closes</dt><dd>{formatWatTime(election.closesAt)}</dd></div>
+          {/* One date only when voting starts and ends the same day; a vote spanning
+              days showed the opening date beside the closing time, as if it closed that evening. */}
+          {formatWatDate(election.opensAt) === formatWatDate(election.closesAt) ? <>
+            <div><CalendarDays /><dt>Election Date</dt><dd>{formatWatDate(election.opensAt)}</dd></div>
+            <div><Clock /><dt>Voting Opens</dt><dd>{formatWatTime(election.opensAt)}</dd></div>
+            <div><Clock /><dt>Voting Closes</dt><dd>{formatWatTime(election.closesAt)}</dd></div>
+          </> : <>
+            <div><CalendarDays /><dt>Voting Opens</dt><dd>{formatWatDate(election.opensAt)} · {formatWatTime(election.opensAt)}</dd></div>
+            <div><Clock /><dt>Voting Closes</dt><dd>{formatWatDate(election.closesAt)} · {formatWatTime(election.closesAt)}</dd></div>
+          </>}
           <div><Globe /><dt>Voting Method</dt><dd>Online Voting</dd></div>
           <div><IdCard /><dt>Eligibility</dt><dd>Registered NLA Osun State Chapter Members</dd></div>
         </dl>

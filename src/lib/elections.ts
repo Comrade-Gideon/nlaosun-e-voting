@@ -44,6 +44,24 @@ export function electionState(opensAt: Date, closesAt: Date, now = new Date()) {
   return "open" as const;
 }
 
+/**
+ * Why a voter cannot sign in right now, or null while voting is open. Shared by
+ * the login page and the sign-in API so both say the same thing.
+ */
+export function votingClosedNotice(
+  election: { title: string; opensAt: Date; closesAt: Date } | null,
+  now = new Date(),
+) {
+  if (!election)
+    return { state: "unpublished" as const, title: "Voting is not open", message: "No election is currently open for voting. Please check back when the Election Committee announces the voting period." };
+  const state = electionState(election.opensAt, election.closesAt, now);
+  if (state === "upcoming")
+    return { state, title: "Voting has not opened yet", message: `Voting for the ${election.title} opens on ${formatWat(election.opensAt)}. Please return then to sign in and cast your vote.` };
+  if (state === "closed")
+    return { state, title: "Voting has closed", message: `Voting for the ${election.title} closed on ${formatWat(election.closesAt)}. Results will be published on the Results page once verified.` };
+  return null;
+}
+
 export function formatWat(value: Date) {
   return new Intl.DateTimeFormat("en-NG", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "Africa/Lagos", timeZoneName: "short" }).format(value);
 }

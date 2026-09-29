@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { db, withDatabaseRetry } from "@/lib/db";
-import { hashSurname, normalizeMatric } from "@/lib/security";
+import { hashSurname, normalizePhone } from "@/lib/security";
 
 function cells(line: string) {
   const result: string[] = [];
@@ -33,33 +33,60 @@ export async function POST(request: Request) {
   if (lines.length < 2) return NextResponse.json({ message: "CSV has no voter rows." }, { status: 400 });
   const headers = cells(lines[0]).map((value) => value.toLowerCase().replace(/[^a-z]/g, ""));
   const index = (...names: string[]) => headers.findIndex((header) => names.includes(header));
+  // Friendly headings ("Phone Number") and the database's own column names
+  // ("matriculationNumber", which now holds the phone number, "displayName") are
+  // both accepted, so a list exported from the database can be uploaded as is.
   const indexes = {
-    matric: index("matricno", "matriculationnumber", "matric"),
-    fullName: index("fullname", "studentname", "name"),
+    phone: index("phonenumber", "phoneno", "phone", "mobilenumber", "mobile", "telephone", "gsm", "matriculationnumber", "matricno", "matric"),
+    fullName: index("fullname", "displayname", "studentname", "name"),
     surname: index("surname", "lastname"),
-    level: index("levelpart", "partlevel", "level", "part", "yearofstudy", "academiclevel"),
+    surnameHash: index("surnamenormalizedhash"),
+    department: index("department"),
+    eligible: index("eligible"),
   };
-  if (Object.values(indexes).some((column) => column < 0)) {
-    return NextResponse.json({ message: "CSV requires Matric No., Full Name, Surname, and Level / Part columns." }, { status: 400 });
+  if (indexes.phone < 0 || indexes.fullName < 0 || (indexes.surname < 0 && indexes.surnameHash < 0)) {
+    return NextResponse.json({ message: "CSV requires Phone Number, Full Name and Surname columns (Department and Eligible are optional)." }, { status: 400 });
   }
 
   let imported = 0;
   const errors: string[] = [];
+  const cell = (data: string[], column: number) => (column < 0 ? "" : data[column]?.trim() ?? "");
   try {
     for (let row = 1; row < lines.length; row++) {
       const data = cells(lines[row]);
-      const matriculationNumber = normalizeMatric(data[indexes.matric] ?? "");
-      const displayName = data[indexes.fullName]?.trim() ?? "";
-      const surname = data[indexes.surname]?.trim() ?? "";
-      const level = data[indexes.level]?.trim() ?? "";
-      if (!matriculationNumber || !displayName || !surname || !level) {
-        errors.push(`Row ${row + 1}: missing matric number, full name, surname, or level/part`);
+      const rawPhone = cell(data, indexes.phone);
+      const phoneNumber = normalizePhone(rawPhone);
+      const displayName = cell(data, indexes.fullName);
+      const surname = cell(data, indexes.surname);
+      const storedHash = cell(data, indexes.surnameHash).toLowerCase();
+      if (!rawPhone || !displayName) {
+        errors.push(`Row ${row + 1}: missing phone number or full name`);
         continue;
       }
+      if (!phoneNumber) {
+        errors.push(`Row ${row + 1}: "${rawPhone.slice(0, 30)}" is not a valid phone number`);
+        continue;
+      }
+      // A surname hash is only usable if this system made it (HMAC-SHA256 with
+      // SESSION_SECRET, 64 hex characters), i.e. a re-upload of our own export.
+      // Anything else could never match what the voter types at sign-in.
+      const surnameNormalizedHash = surname ? hashSurname(surname) : /^[0-9a-f]{64}$/.test(storedHash) ? storedHash : "";
+      if (!surnameNormalizedHash) {
+        errors.push(`Row ${row + 1}: add the voter's surname (a Surname column is needed; surname hashes from elsewhere cannot be used)`);
+        continue;
+      }
+      const eligibleText = cell(data, indexes.eligible).toLowerCase();
+      const eligible = !["false", "no", "0", "n"].includes(eligibleText);
+      const details = {
+        surnameNormalizedHash,
+        displayName,
+        eligible,
+        ...(indexes.department >= 0 ? { department: cell(data, indexes.department) } : {}),
+      };
       await withDatabaseRetry(() => db.voter.upsert({
-        where: { matriculationNumber },
-        update: { surnameNormalizedHash: hashSurname(surname), displayName, level, eligible: true },
-        create: { matriculationNumber, surnameNormalizedHash: hashSurname(surname), displayName, level },
+        where: { phoneNumber },
+        update: details,
+        create: { phoneNumber, ...details },
       }));
       imported++;
     }

@@ -50,10 +50,12 @@ export async function PUT(request: Request) {
     select: { nominationsOpenAt: true, nominationsCloseAt: true },
   }));
 
-  // Existing drafts must not outlive the window they were opened under.
+  // Nominations follow the window. SUBMITTED is included because guarantor links
+  // are valid until their nomination's expiry: extending the window used to leave
+  // submitted nominations on the old date, locking their guarantors out.
   if (settings.action === "SET")
     await withDatabaseRetry(() => db.nominationInvite.updateMany({
-      where: { status: { in: ["DRAFT", "REJECTED"] } },
+      where: { status: { in: ["DRAFT", "REJECTED", "SUBMITTED"] } },
       data: { expiresAt: settings.closesAt },
     }));
 

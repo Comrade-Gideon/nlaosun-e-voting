@@ -130,6 +130,11 @@ export async function POST(request: Request) {
         { code: "DATABASE_UNAVAILABLE", message: "The nomination database is temporarily unavailable. Please try again in a moment." },
         { status: 503, headers: { "Retry-After": "3" } },
       );
-    throw error;
+    // JSON rather than a rethrow, which Next.js turns into an empty 500.
+    console.error("[nominations/start] failed", error instanceof Error ? `${error.name}: ${error.message.slice(0, 200)}` : "unknown error");
+    return NextResponse.json(
+      { code: "SERVER_ERROR", message: "We could not open your nomination just now. Please try again in a moment." },
+      { status: 500 },
+    );
   }
 }

@@ -10,7 +10,7 @@ export const revalidate = 0;
 export default async function Electorates() {
   const loaded = await withDatabaseRetry(() => Promise.all([
     db.voter.findMany({
-      select: { id: true, displayName: true, matriculationNumber: true, eligible: true, level: true },
+      select: { id: true, displayName: true, phoneNumber: true, eligible: true },
       orderBy: { createdAt: "desc" },
       take: 500,
     }),

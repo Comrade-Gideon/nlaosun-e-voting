@@ -17,7 +17,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 type Position = { id: string; title: string };
 type NominationWindow = { opensAt: string | null; closesAt: string | null };
 
@@ -32,9 +32,8 @@ const watLocal = (value: string | null) => {
   return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
 };
 
-function windowState(nominationWindow: NominationWindow) {
+function windowState(nominationWindow: NominationWindow, now: number) {
   if (!nominationWindow.opensAt || !nominationWindow.closesAt) return "closed" as const;
-  const now = Date.now();
   if (now < new Date(nominationWindow.opensAt).getTime()) return "upcoming" as const;
   if (now > new Date(nominationWindow.closesAt).getTime()) return "closed" as const;
   return "open" as const;
@@ -114,7 +113,14 @@ export function NominationAdmin({
   const [review, setReview] = useState<Review | null>(null);
   const [reviewBusy, setReviewBusy] = useState(false);
   const [note, setNote] = useState("");
-  const openState = windowState(nominationWindow);
+  // Re-evaluated every 30s: computed once at render, a tab left open past the
+  // closing time kept reporting OPEN while /nominate already said closed.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+  const openState = windowState(nominationWindow, now);
   async function saveWindow(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
@@ -166,8 +172,8 @@ export function NominationAdmin({
     if (!response.ok) return setError(result.message);
     setNotice(
       result.sent
-        ? `A new link was emailed to ${guarantor.email}.`
-        : `${result.error} Link for ${guarantor.name}: ${result.link}`,
+        ? `A new link was emailed to ${guarantor.email}. Their previous link no longer works; they must use this latest email.`
+        : `${result.error} New link for ${guarantor.name} (their previous link no longer works): ${result.link}`,
     );
     router.refresh();
   }

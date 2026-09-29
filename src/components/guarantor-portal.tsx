@@ -76,7 +76,11 @@ export function GuarantorPortal({ token }: { token: string }) {
       if (cancelled) return;
       if (!response.ok) {
         setInvalid({
-          title: body.code === "SUBMITTED" ? "Already completed" : "Link unavailable",
+          title:
+            body.code === "SUBMITTED" ? "Already completed"
+            : body.code === "INVALID" ? "This link has been replaced"
+            : body.code === "EXPIRED" ? "Nominations have closed"
+            : "Link unavailable",
           message: body.message,
         });
         return;

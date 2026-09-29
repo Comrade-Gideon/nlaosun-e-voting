@@ -63,7 +63,7 @@ type Receipt = {
   permanentAddress: string;
   phone: string;
   pka: string;
-  passportData: string;
+  passportData: string | null;
   tagline: string;
   biography: string;
   manifesto: string;
@@ -109,6 +109,16 @@ const declarations = [
   "I consent to publication of my name, photograph, position, biography, manifesto, mission, vision and priorities for election purposes.",
 ];
 
+function listOf(items: string[]) {
+  return items.length < 2
+    ? items.join("")
+    : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
+}
+
+function missingMessage(items: string[]) {
+  return `Please complete the ${items.length === 1 ? "following" : `following ${items.length} items`}: ${listOf(items)}.`;
+}
+
 function validateFile(file: File, max: number, types: string[]) {
   if (file.size > max)
     throw new Error(
@@ -124,13 +134,32 @@ function safeUploadName(value: string) {
     .replace(/^-+|-+$/g, "")
     .slice(0, 120) || "file";
 }
+const RETRY_DELAYS_MS = [1_000, 2_500];
+
+/**
+ * For idempotent requests only (loading and saving the draft). A brief network
+ * drop or a 5xx while the database resumes is retried before the candidate
+ * ever sees it. Submission is never retried automatically.
+ */
+async function fetchWithRetry(input: string, init?: RequestInit) {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      const response = await fetch(input, init);
+      if (response.status < 500 || attempt >= RETRY_DELAYS_MS.length) return response;
+    } catch (error) {
+      if (attempt >= RETRY_DELAYS_MS.length || (error instanceof Error && error.name === "AbortError")) throw error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
+  }
+}
+
 async function responseBody(response: Response) {
   const text = await response.text();
   if (!text)
     return {
       message: response.ok
         ? ""
-        : "The server did not return a response. Please try again.",
+        : "We could not complete that just now. Your answers are safe on this page; please try again in a moment.",
     };
   try {
     return JSON.parse(text);
@@ -181,7 +210,7 @@ export function NominationPortal({
       timers.push(window.setTimeout(() => router.push("/"), 4000));
     async function load(attempt = 0) {
       try {
-        const response = await fetch("/api/nominations/session", {
+        const response = await fetchWithRetry("/api/nominations/session", {
           signal: controller.signal,
         });
         const body = await responseBody(response);
@@ -308,38 +337,49 @@ export function NominationPortal({
       setBusy(false);
     }
   }
-  async function saveDraft(silent = false) {
-    if (busy) return false;
-    setBusy(true);
-    setError("");
+  // Autosave runs while the candidate types, so a save can already be in flight
+  // when they press Next. Chaining on it (instead of the old `if (busy) return`,
+  // which made Next silently do nothing) keeps saves in order.
+  const saving = useRef<Promise<boolean>>(Promise.resolve(true));
+  function saveDraft(background = false) {
+    const run = saving.current.then(() => persistDraft(background));
+    saving.current = run.catch(() => false);
+    return run;
+  }
+  async function persistDraft(background: boolean) {
+    if (!background) {
+      setBusy(true);
+      setError("");
+    }
     try {
       const payload = {
         ...data,
         declarationsAccepted: accepted.every(Boolean),
       };
-      const response = await fetch("/api/nominations/session", {
+      const response = await fetchWithRetry("/api/nominations/session", {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
       });
       const body = await responseBody(response);
       if (!response.ok) {
-        setError(body.message || "Draft could not be saved. Please try again.");
+        // A background save that fails is shown only in the save indicator; the
+        // next edit or the Next button tries again. Red errors are reserved for
+        // something the candidate did.
+        if (!background) setError(body.message || "Your draft could not be saved just now. Please try again.");
         setSaveState("failed");
         return false;
       }
-      if (!silent) setNotice("Draft saved securely.");
       setSaveState("saved");
       setSavedAt(new Intl.DateTimeFormat("en-NG", { hour: "numeric", minute: "2-digit", timeZone: "Africa/Lagos" }).format(new Date()));
       return true;
     } catch {
-      setError(
-        "Could not reach the nomination server. Check your connection and try again.",
-      );
+      if (!background)
+        setError("We could not reach the nomination server. Your answers are still on this page; please check your connection and try again.");
       setSaveState("failed");
       return false;
     } finally {
-      setBusy(false);
+      if (!background) setBusy(false);
     }
   }
   const firstRender = useRef(true);
@@ -358,52 +398,55 @@ export function NominationPortal({
 
   async function next() {
     setError("");
-    if (
-      step === 1 &&
-      (!data.phone ||
-        !data.currentPosition ||
-        data.permanentAddress.trim().length < 10)
-    ) {
-      setError(
-        "Enter your phone number, current position at your place of work, and your permanent home address.",
-      );
-      return;
+    // Name only what is actually missing on this step, not every requirement.
+    const missing: string[] = [];
+    if (step === 1) {
+      if (!data.phone.trim()) missing.push("phone number");
+      if (data.permanentAddress.trim().length < 10)
+        missing.push(data.permanentAddress.trim() ? "a complete permanent home address (at least 10 characters)" : "permanent home address");
+      if (!data.currentPosition.trim()) missing.push("current position at your place of work");
     }
     if (step === 2) {
-      const lengths = [
-        data.manifesto.length,
-        data.mission.length,
-        data.vision.length,
-      ];
-      if (
-        !data.passportData ||
-        !data.pka.trim() ||
-        !data.tagline ||
-        data.biography.length < 50 ||
-        lengths.some((length) => length < 400 || length > 1000) ||
-        data.priorities.some((value) => value.trim().length < 2)
-      ) {
-        setError(
-          "Add a passport, PKA, biography, slogan, three priorities, and ensure manifesto, mission and vision are each 400–1000 characters.",
-        );
-        return;
+      if (!data.passportData) missing.push("passport photograph");
+      if (!data.pka.trim()) missing.push("PKA (Politically Known As)");
+      if (!data.tagline.trim()) missing.push("campaign slogan");
+      if (data.biography.length < 50)
+        missing.push(`short biography (${50 - data.biography.length} more characters)`);
+      for (const [label, value] of [
+        ["manifesto", data.manifesto],
+        ["mission", data.mission],
+        ["vision", data.vision],
+      ] as const) {
+        if (value.length < 400) missing.push(`${label} (${400 - value.length} more characters)`);
+        else if (value.length > 1000) missing.push(`${label} (${value.length - 1000} characters over the limit)`);
       }
+      const priorities = data.priorities
+        .map((value, index) => (value.trim().length < 2 ? index + 1 : 0))
+        .filter(Boolean);
+      if (priorities.length)
+        missing.push(`${priorities.length === 1 ? "priority" : "priorities"} ${listOf(priorities.map(String))}`);
     }
-    if (await saveDraft(true)) setStep((value) => Math.min(3, value + 1));
+    if (missing.length) {
+      setError(missingMessage(missing));
+      return;
+    }
+    if (await saveDraft()) setStep((value) => Math.min(3, value + 1));
   }
   async function submit() {
     setError("");
     if (busy) return;
-    if (
-      !data.studentIdData ||
-      data.guarantors.filter((g) => g.name.trim() && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(g.email.trim())).length < 2 ||
-      !data.identificationData ||
-      !data.signatureData ||
-      !accepted.every(Boolean)
-    ) {
-      setError(
-        "Upload your membership evidence, means of identification and signature, name two guarantors, then accept every declaration.",
-      );
+    const missing: string[] = [];
+    if (!data.studentIdData) missing.push("membership evidence");
+    if (!data.identificationData) missing.push("means of identification");
+    const guarantors = data.guarantors.filter(
+      (g) => g.name.trim() && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(g.email.trim()),
+    ).length;
+    if (guarantors < 2)
+      missing.push(guarantors === 1 ? "a second guarantor's name and valid email" : "two guarantors' names and valid emails");
+    if (!accepted.every(Boolean)) missing.push("acceptance of every declaration");
+    if (!data.signatureData) missing.push("signature");
+    if (missing.length) {
+      setError(missingMessage(missing));
       return;
     }
     setBusy(true);
@@ -1179,13 +1222,15 @@ function NominationReceipt({ receipt }: { receipt: Receipt }) {
             <strong>PENDING REVIEW</strong>
           </header>
           <div className="receipt-profile">
-            <Image
-              unoptimized
-              src={receipt.passportData}
-              width={180}
-              height={180}
-              alt={`${receipt.candidateName} passport`}
-            />
+            {receipt.passportData && (
+              <Image
+                unoptimized
+                src={receipt.passportData}
+                width={180}
+                height={180}
+                alt={`${receipt.candidateName} passport`}
+              />
+            )}
             <div>
               <small>CANDIDATE</small>
               <h1>{receipt.candidateName}</h1>

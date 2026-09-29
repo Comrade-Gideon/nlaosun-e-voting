@@ -2,28 +2,33 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { getPublishedElectionSummary } from "@/lib/elections";
+import { getPublishedElectionSummary, votingClosedNotice } from "@/lib/elections";
 import {
   hashSurname,
   hashesEqual,
   hashToken,
   issueToken,
-  normalizeMatric,
+  normalizePhone,
   SESSION_TTL_MS,
   VOTING_COOKIE,
 } from "@/lib/security";
 
 const inputSchema = z.object({
-  matriculationNumber: z.string().trim().min(4).max(40),
+  phoneNumber: z.string().trim().min(7).max(30),
   surname: z.string().trim().min(2).max(80),
 });
 
 export async function POST(request: Request) {
   const parsed = inputSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ message: "Enter a valid matriculation number and surname." }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ message: "Enter a valid phone number and surname." }, { status: 400 });
 
   const election = await getPublishedElectionSummary();
-  const voter = await db.voter.findUnique({ where: { matriculationNumber: normalizeMatric(parsed.data.matriculationNumber) } });
+  // Checked before the voter lookup, so outside the window nobody can use this
+  // endpoint to test whether a phone number is on the register.
+  const closed = votingClosedNotice(election);
+  if (closed) return NextResponse.json({ code: "VOTING_NOT_OPEN", message: closed.message }, { status: 403 });
+  const phoneNumber = normalizePhone(parsed.data.phoneNumber);
+  const voter = phoneNumber ? await db.voter.findUnique({ where: { phoneNumber } }) : null;
   const validIdentity = voter && hashesEqual(voter.surnameNormalizedHash, hashSurname(parsed.data.surname));
   const existingBallot = voter && election
     ? await db.ballot.findUnique({ where: { electionId_voterId: { electionId: election.id, voterId: voter.id } } })

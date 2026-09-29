@@ -171,12 +171,13 @@ model Guarantor {
 
 model Voter {
   id                    String          @id @default(cuid())
-  matriculationNumber   String          @unique
+  // Voters sign in with phone number + surname. Stored in the column that held
+  // matriculation numbers (NALISS era), so no database migration was needed.
+  phoneNumber           String          @unique @map("matriculationNumber")
   surnameNormalizedHash String
   displayName           String
   eligible              Boolean         @default(true)
   department            String          @default("")
-  level                 String          @default("")
   ballots               Ballot[]
   sessions              VotingSession[]
   createdAt             DateTime        @default(now())

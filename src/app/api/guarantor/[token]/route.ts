@@ -26,12 +26,22 @@ const unavailable = () =>
   );
 
 /** Loads the guarantor's own section, with the candidate details prefilled for context. */
+// JSON rather than a rethrow, which Next.js turns into an empty 500 the portal
+// can only report as "no response".
+function failed(error: unknown) {
+  console.error("[guarantor] request failed", error instanceof Error ? `${error.name}: ${error.message.slice(0, 200)}` : "unknown error");
+  return NextResponse.json(
+    { code: "SERVER_ERROR", message: "We could not complete that just now. Please try again in a moment." },
+    { status: 500 },
+  );
+}
+
 export async function GET(_: Request, { params }: { params: Promise<{ token: string }> }) {
   try {
     const { token } = await params;
     const guarantor = await guarantorByToken(token);
     if (!guarantor)
-      return NextResponse.json({ code: "INVALID", message: "This guarantor link is not valid." }, { status: 410 });
+      return NextResponse.json({ code: "INVALID", message: "This guarantor link is no longer valid. A newer link may have been sent to you; please open the most recent invitation email, or ask the candidate or Election Committee to resend it." }, { status: 410 });
     if (guarantor.submittedAt)
       return NextResponse.json(
         { code: "SUBMITTED", message: "You have already completed this guarantor form. Thank you." },
@@ -57,7 +67,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ token: str
     });
   } catch (error) {
     if (isTransientDatabaseError(error)) return unavailable();
-    throw error;
+    return failed(error);
   }
 }
 
@@ -77,7 +87,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ toke
     return NextResponse.json({ ok: true });
   } catch (error) {
     if (isTransientDatabaseError(error)) return unavailable();
-    throw error;
+    return failed(error);
   }
 }
 
@@ -106,6 +116,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     return NextResponse.json({ ok: true, candidateName: guarantor.nomination.candidateName }, { status: 201 });
   } catch (error) {
     if (isTransientDatabaseError(error)) return unavailable();
-    throw error;
+    return failed(error);
   }
 }

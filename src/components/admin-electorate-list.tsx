@@ -7,24 +7,21 @@ import { useState } from "react";
 type Electorate = {
   id: string;
   displayName: string;
-  matriculationNumber: string;
+  phoneNumber: string;
   eligible: boolean;
-  level: string;
 };
 
 type Form = {
   displayName: string;
-  matriculationNumber: string;
+  phoneNumber: string;
   surname: string;
-  level: string;
   eligible: boolean;
 };
 
 const empty: Form = {
   displayName: "",
-  matriculationNumber: "",
+  phoneNumber: "",
   surname: "",
-  level: "",
   eligible: true,
 };
 
@@ -55,9 +52,8 @@ export function AdminElectorateList({ voters }: { voters: Electorate[] }) {
     setError("");
     setForm({
       displayName: voter.displayName,
-      matriculationNumber: voter.matriculationNumber,
+      phoneNumber: voter.phoneNumber,
       surname: "",
-      level: voter.level,
       eligible: voter.eligible,
     });
   }
@@ -104,9 +100,8 @@ export function AdminElectorateList({ voters }: { voters: Electorate[] }) {
     {(adding || editing) && <form className="electorate-form" onSubmit={save}>
       <div className="form-grid">
         <label>Full Name<input value={form.displayName} onChange={(event) => field("displayName", event.target.value)} required /></label>
-        <label>Matriculation Number<input value={form.matriculationNumber} onChange={(event) => field("matriculationNumber", event.target.value)} required /></label>
+        <label>Phone Number<input type="tel" inputMode="tel" autoComplete="off" placeholder="e.g. 0803 123 4567" value={form.phoneNumber} onChange={(event) => field("phoneNumber", event.target.value)} required /></label>
         <label>Surname {editing && <small>(leave blank to keep current)</small>}<input value={form.surname} onChange={(event) => field("surname", event.target.value)} required={!editing} /></label>
-        <label>Level / Part<input value={form.level} onChange={(event) => field("level", event.target.value)} placeholder="e.g. Part 2" required /></label>
         <label className="eligible-check"><input type="checkbox" checked={form.eligible} onChange={(event) => field("eligible", event.target.checked)} />Eligible to vote</label>
       </div>
       {error && <p className="error">{error}</p>}
@@ -116,9 +111,9 @@ export function AdminElectorateList({ voters }: { voters: Electorate[] }) {
       </div>
     </form>}
     <div className="electorate-table">
-      <div className="electorate-table-head"><span>Name</span><span>Matriculation No.</span><span>Level / Part</span><span>Status</span><span>Actions</span></div>
+      <div className="electorate-table-head"><span>Name</span><span>Phone Number</span><span>Status</span><span>Actions</span></div>
       {voters.map((voter) => <div className="electorate-table-row" key={voter.id}>
-        <b>{voter.displayName}</b><span>{voter.matriculationNumber}</span><span>{voter.level || "—"}</span>
+        <b>{voter.displayName}</b><span>{voter.phoneNumber}</span>
         <small className={voter.eligible ? "eligible" : "disabled"}>{voter.eligible ? "Eligible" : "Disabled"}</small>
         <div><button onClick={() => startEdit(voter)}><Edit3 />Edit</button><button className="delete-action" onClick={() => remove(voter)}><Trash2 />Remove</button></div>
       </div>)}

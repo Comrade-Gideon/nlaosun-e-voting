@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "NODE_OPTIONS=--network-family-autoselection-attempt-timeout=2000 next dev",
+    "build": "NODE_OPTIONS=--network-family-autoselection-attempt-timeout=2000 next build",
+    "start": "NODE_OPTIONS=--network-family-autoselection-attempt-timeout=2000 next start",
     "lint": "eslint .",
     "test": "vitest run",
     "postinstall": "prisma generate",

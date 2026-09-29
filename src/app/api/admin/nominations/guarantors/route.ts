@@ -54,6 +54,7 @@ export async function POST(request: Request) {
           link,
           closesAt: guarantor.nomination.expiresAt,
           origin: getPublicOrigin(request),
+          reissuedAt: new Date(),
         }),
       })
     : { sent: false, error: "Email is not configured (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REFRESH_TOKEN). Send this link manually." };

@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { Prisma } from "@prisma/client";
-import { db } from "@/lib/db";
+import { db, isTransientDatabaseError } from "@/lib/db";
 import { isExpectedNominationBlob, storedImageDataUrl } from "@/lib/blob-storage";
 import { receiptCode } from "@/lib/security";
 import { getPublicOrigin } from "@/lib/site-url";
@@ -14,20 +13,19 @@ const dataFile = z.string().max(6_000_000).nullable().optional();
 const guarantor = z.object({ name: z.string().trim().min(3).max(120), email: z.string().trim().email().max(160) });
 const draftSchema = z.object({ phone: z.string().trim().max(30).optional(), currentPosition: z.string().trim().max(160).optional(), permanentAddress: z.string().trim().max(500).optional(), pka: z.string().trim().max(100).optional(), tagline: z.string().trim().max(180).optional(), biography: z.string().trim().max(1500).optional(), manifesto: z.string().trim().max(1000).optional(), mission: z.string().trim().max(1000).optional(), vision: z.string().trim().max(1000).optional(), priorities: z.array(z.string().trim().max(240)).max(3).optional(), guarantors: z.array(z.object({ name: z.string().trim().max(120), email: z.string().trim().max(160) })).max(REQUIRED_GUARANTORS).optional(), passportData: dataFile, passportName: z.string().max(180).nullable().optional(), studentIdData: dataFile, studentIdName: z.string().max(180).nullable().optional(), identificationData: dataFile, identificationName: z.string().max(180).nullable().optional(), signatureData: dataFile, signatureName: z.string().max(180).nullable().optional(), declarationsAccepted: z.boolean().optional() });
 const finalSchema = draftSchema.extend({ phone: z.string().trim().min(7).max(30), currentPosition: z.string().trim().min(2).max(160), permanentAddress: z.string().trim().min(10).max(500), pka: z.string().trim().min(2).max(100), tagline: z.string().trim().min(2).max(180), biography: z.string().trim().min(50).max(1500), manifesto: z.string().trim().min(400).max(1000), mission: z.string().trim().min(400).max(1000), vision: z.string().trim().min(400).max(1000), priorities: z.array(z.string().trim().min(2).max(240)).length(3), guarantors: z.array(guarantor).length(REQUIRED_GUARANTORS), passportData: z.string().min(20).max(2_500_000), passportName: z.string().min(1).max(180), studentIdData: z.string().min(20).max(6_000_000), studentIdName: z.string().min(1).max(180), identificationData: z.string().min(20).max(6_000_000), identificationName: z.string().min(1).max(180), signatureData: z.string().min(20).max(2_500_000), signatureName: z.string().min(1).max(180), declarationsAccepted: z.literal(true) });
-function isTransientDatabaseError(error: unknown) { return error instanceof Prisma.PrismaClientKnownRequestError && ["P1001", "P2024", "P2028"].includes(error.code); }
-async function retryDatabase<T>(operation: () => Promise<T>) {
-  try { return await operation(); }
-  catch (error) {
-    if (!isTransientDatabaseError(error)) throw error;
-    await new Promise(resolve => setTimeout(resolve, 400));
-    return operation();
-  }
+// Every failure answers with JSON the form can show. A bare rethrow made Next.js
+// send an empty 500, which the form could only report as "The server did not
+// return a response". Queries already retry connection drops inside `db`.
+function failed(route: string, error: unknown) {
+  if (isTransientDatabaseError(error)) return unavailable();
+  console.error(`[nominations/session] ${route} failed`, error instanceof Error ? `${error.name}: ${error.message.slice(0, 200)}` : "unknown error");
+  return NextResponse.json({ code: "SERVER_ERROR", message: "We could not complete that just now. Your answers are still on this page; please try again in a moment." }, { status: 500 });
 }
 function unavailable() { return NextResponse.json({ code: "DATABASE_UNAVAILABLE", message: "The nomination database is temporarily unavailable. Your information is still on this device; please wait a moment and try again." }, { status: 503, headers: { "Retry-After": "3" } }); }
 
 export async function GET() {
   try {
-    const invite = await retryDatabase(() => currentNomination());
+    const invite = await currentNomination();
     if (!invite) return NextResponse.json({ code: "NO_SESSION", message: "Start your nomination to open the form." }, { status: 404 });
     if (invite.status === "SUBMITTED") return NextResponse.json({ code: "SUBMITTED", message: "This nomination form has already been submitted and is awaiting Electoral Commission review." }, { status: 410 });
     if (invite.status === "APPROVED") return NextResponse.json({ code: "APPROVED", message: "This nomination has been approved and published on the candidate page." }, { status: 410 });
@@ -70,14 +68,13 @@ export async function GET() {
       },
     });
   } catch (error) {
-    if (isTransientDatabaseError(error)) return unavailable();
-    throw error;
+    return failed("GET", error);
   }
 }
 
 export async function PUT(request: Request) {
   try {
-    const invite = await retryDatabase(() => currentNomination());
+    const invite = await currentNomination();
     if (!isEditable(invite)) return NextResponse.json({ message: "This nomination can no longer be edited." }, { status: 410 });
     const parsed = draftSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return NextResponse.json({ message: "Some draft fields are invalid or files are too large." }, { status: 400 });
@@ -90,9 +87,9 @@ export async function PUT(request: Request) {
     ] as const;
     if (files.some(([field, value]) => value && !isExpectedNominationBlob(value, invite!.id, field)))
       return NextResponse.json({ message: "One or more uploaded file references are invalid." }, { status: 400 });
-    await retryDatabase(() => db.nominationInvite.update({ where: { id: invite!.id }, data: { ...data, ...(priorities ? { priorities: JSON.stringify(priorities) } : {}), ...(guarantors ? { guarantorsDraft: JSON.stringify(guarantors) } : {}) } }));
+    await db.nominationInvite.update({ where: { id: invite!.id }, data: { ...data, ...(priorities ? { priorities: JSON.stringify(priorities) } : {}), ...(guarantors ? { guarantorsDraft: JSON.stringify(guarantors) } : {}) } });
     return NextResponse.json({ ok: true });
-  } catch (error) { if (isTransientDatabaseError(error)) return unavailable(); throw error; }
+  } catch (error) { return failed("PUT", error); }
 }
 
 export async function POST(request: Request) {
@@ -110,7 +107,13 @@ export async function POST(request: Request) {
     ] as const;
     if (files.some(([field, value]) => !isExpectedNominationBlob(value, current!.id, field)))
       return NextResponse.json({ message: "One or more uploaded file references are invalid." }, { status: 400 });
-    const passportForPrint = await storedImageDataUrl(parsed.data.passportData);
+    // Only for the printable receipt. A storage misconfiguration or outage here
+    // (e.g. R2_PRIVATE_BUCKET missing at runtime) used to fail the whole
+    // submission with a 500; the receipt simply goes without the photo instead.
+    const passportForPrint = await storedImageDataUrl(parsed.data.passportData).catch((error: unknown) => {
+      console.error("[nominations/session] receipt photo unavailable", error instanceof Error ? error.message.slice(0, 200) : "unknown error");
+      return null;
+    });
     const result = await db.$transaction(async tx => {
       const invite = await tx.nominationInvite.findUnique({ where: { id: current!.id }, include: { position: true } });
       if (!invite || !["DRAFT", "REJECTED"].includes(invite.status) || invite.expiresAt <= new Date()) throw new Error("INVALID_LINK");
@@ -146,7 +149,6 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof Error && error.message === "INVALID_LINK") return NextResponse.json({ message: "This nomination is no longer open for submission." }, { status: 410 });
     if (error instanceof Error && error.message === "DUPLICATE_CANDIDATE") return NextResponse.json({ message: "A candidate is already published for this email address." }, { status: 409 });
-    if (isTransientDatabaseError(error)) return unavailable();
-    throw error;
+    return failed("POST", error);
   }
 }
