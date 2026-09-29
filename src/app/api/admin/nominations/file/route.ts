@@ -21,6 +21,26 @@ export async function GET(request: Request) {
     const invite = await db.nominationInvite.findUnique({ where: { id } });
     if (!invite)
       return NextResponse.json({ message: "Not found." }, { status: 404 });
+
+    // A guarantor's signature lives on the Guarantor row, not the nomination.
+    // It is still addressed through the nomination id so the check below can
+    // confirm the two belong together before serving anything.
+    const guarantorId = url.searchParams.get("guarantor");
+    if (guarantorId) {
+      if (field !== "signature")
+        return NextResponse.json({ message: "Invalid file request." }, { status: 400 });
+      const guarantor = await db.guarantor.findUnique({ where: { id: guarantorId } });
+      if (!guarantor || guarantor.nominationId !== invite.id)
+        return NextResponse.json({ message: "Not found." }, { status: 404 });
+      if (!guarantor.signatureData)
+        return new Response("File not found.", { status: 404 });
+      return await storedFileResponse(
+        guarantor.signatureData,
+        guarantor.signatureName ?? `${guarantor.name}-signature`,
+        url.searchParams.get("download") === "1" ? "attachment" : "inline",
+      );
+    }
+
     const value = invite[config.dataKey as keyof typeof invite];
     const name = invite[config.nameKey as keyof typeof invite];
     if (typeof value !== "string")

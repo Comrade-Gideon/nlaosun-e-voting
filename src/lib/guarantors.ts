@@ -1,5 +1,5 @@
 import { db, withDatabaseRetry } from "@/lib/db";
-import { hashToken, issueToken } from "@/lib/security";
+import { hashGuarantorToken, issueGuarantorToken } from "@/lib/security";
 import { guarantorInviteMessage, mailerConfigured, sendMail } from "@/lib/mailer";
 
 /** Every nomination needs exactly this many completed guarantor sections. */
@@ -10,7 +10,7 @@ export const RECOMMENDATION_MAX = 1500;
 
 export async function guarantorByToken(token: string) {
   return withDatabaseRetry(() => db.guarantor.findUnique({
-    where: { tokenHash: hashToken(token) },
+    where: { tokenHash: hashGuarantorToken(token) },
     include: { nomination: { include: { position: true } } },
   }));
 }
@@ -37,12 +37,12 @@ export async function inviteGuarantors(
 
   const results: { name: string; email: string; link: string; sent: boolean; error?: string }[] = [];
   for (const person of people) {
-    const token = issueToken();
+    const token = issueGuarantorToken();
     const link = `${origin}/guarantor/${token}`;
     const created = await withDatabaseRetry(() => db.guarantor.create({
       data: {
         nominationId,
-        tokenHash: hashToken(token),
+        tokenHash: hashGuarantorToken(token),
         name: person.name,
         email: person.email,
       },
@@ -54,10 +54,12 @@ export async function inviteGuarantors(
       position: nomination.position.title,
       link,
       closesAt,
+      origin,
     });
     const delivery = mailerConfigured()
       ? await sendMail({ to: person.email, ...message })
       : { sent: false, error: "Email is not configured; send this link manually." };
+    if (!delivery.sent) console.error("Guarantor invitation failed:", { guarantorId: created.id, error: delivery.error });
     if (delivery.sent)
       await withDatabaseRetry(() => db.guarantor.update({
         where: { id: created.id },

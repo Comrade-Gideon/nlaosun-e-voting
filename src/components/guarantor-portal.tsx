@@ -3,15 +3,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, LockKeyhole, Save, ShieldCheck, Upload } from "lucide-react";
-import { safeUploadKey, uploadViaPresignedUrl } from "@/lib/upload-client";
+import { CheckCircle2, LockKeyhole, Save, ShieldCheck } from "lucide-react";
 
 type Draft = {
   institution: string;
   phone: string;
   recommendation: string;
-  signatureData: string | null;
-  signatureName: string | null;
 };
 type Invite = {
   uploadId: string;
@@ -29,8 +26,6 @@ const blank: Draft = {
   institution: "",
   phone: "",
   recommendation: "",
-  signatureData: null,
-  signatureName: null,
 };
 
 async function responseBody(response: Response) {
@@ -68,7 +63,6 @@ export function GuarantorPortal({ token }: { token: string }) {
   const [invite, setInvite] = useState<Invite | null>(null);
   const [data, setData] = useState<Draft>(blank);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const [invalid, setInvalid] = useState<{ title: string; message: string } | null>(null);
@@ -110,38 +104,13 @@ export function GuarantorPortal({ token }: { token: string }) {
   function field<K extends keyof Draft>(key: K, value: Draft[K]) {
     setData((current) => ({ ...current, [key]: value }));
     setError("");
-    setNotice("");
-  }
-
-  async function attachSignature(file?: File) {
-    if (!file || !invite) return;
-    setBusy(true);
-    setError("");
-    try {
-      const types = ["application/pdf", "image/png", "image/jpeg"];
-      if (!types.includes(file.type)) throw new Error("Upload a PDF, JPG or PNG file.");
-      if (file.size > 4_000_000) throw new Error("File must be 4MB or smaller.");
-
-      const stored = await uploadViaPresignedUrl({
-        endpoint: `/api/guarantor/${token}/upload`,
-        key: `nominations/${invite.uploadId}/signature/${safeUploadKey(file.name, "signature")}`,
-        field: "signature",
-        file,
-      });
-      setData((current) => ({ ...current, signatureData: stored.key, signatureName: file.name }));
-      setNotice("Signature uploaded securely.");
-    } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : "The signature could not be uploaded.");
-    } finally {
-      setBusy(false);
-    }
   }
 
   async function submit() {
     if (!invite) return;
     const length = data.recommendation.trim().length;
     const { min, max } = invite.recommendationRange;
-    if (!data.institution.trim() || !data.phone.trim() || !data.signatureData || length < min || length > max) {
+    if (!data.institution.trim() || !data.phone.trim() || length < min || length > max) {
       setError(`Complete every field. The letter of recommendation must contain ${min}–${max} characters (currently ${length}).`);
       return;
     }
@@ -265,21 +234,7 @@ export function GuarantorPortal({ token }: { token: string }) {
             </span>
           </label>
 
-          <label className="upload-box">
-            <Upload />
-            {data.signatureName
-              ? `Signature attached: ${data.signatureName} — choose another to replace it`
-              : "Upload your signature — sign a blank sheet, then photograph or scan it"}
-            <small>PDF, JPG or PNG · max 4MB</small>
-            <input
-              type="file"
-              accept="application/pdf,image/png,image/jpeg"
-              onChange={(event) => attachSignature(event.target.files?.[0])}
-            />
-          </label>
-
           {error && <p className="error">{error}</p>}
-          {notice && <p className="nomination-notice">{notice}</p>}
         </section>
 
         <div className="guarantor-actions">

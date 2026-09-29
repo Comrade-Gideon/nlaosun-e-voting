@@ -16,12 +16,22 @@ const transientMessages = [
   "Connection terminated",
   "ECONNRESET",
   "ETIMEDOUT",
+  // Neon's serverless driver reports a dropped WebSocket this way. Next.js
+  // stringifies the event into the message, which is why builds failed with a
+  // bare "Error: [object ErrorEvent]".
+  "ErrorEvent",
+  "WebSocket",
+  "fetch failed",
 ];
 
 export function isTransientDatabaseError(error: unknown) {
   if (!error || typeof error !== "object") return false;
-  const value = error as { code?: string; message?: string };
+  const value = error as { code?: string; message?: string; type?: string; name?: string };
   if (value.code && transientDatabaseCodes.has(value.code)) return true;
+  // A raw ErrorEvent carries no Prisma code and an empty message, so it reached
+  // neither check above and a single dropped connection aborted the whole build
+  // even though the next attempt a second later succeeds.
+  if (value.type === "error" || value.name === "ErrorEvent") return true;
   return transientMessages.some(text => value.message?.includes(text));
 }
 

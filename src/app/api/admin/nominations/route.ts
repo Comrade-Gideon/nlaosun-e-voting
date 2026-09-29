@@ -4,6 +4,9 @@ import { z } from "zod";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 import { publishCandidatePhoto } from "@/lib/blob-storage";
+import { mailerConfigured, nominationApprovedMessage, sendMail } from "@/lib/mailer";
+import { REQUIRED_GUARANTORS } from "@/lib/guarantors";
+import { getPublicOrigin } from "@/lib/site-url";
 
 const reviewSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("APPROVE") }),
@@ -30,7 +33,9 @@ export async function GET(request: Request) {
     );
   const invite = await db.nominationInvite.findUnique({
     where: { id },
-    include: { position: true },
+    // Guarantors are a relation, so without this the review modal had nothing to
+    // show for them. Tokens are never exposed — only who they are and progress.
+    include: { position: true, guarantors: { orderBy: { createdAt: "asc" } } },
   });
   if (!invite)
     return NextResponse.json(
@@ -41,6 +46,19 @@ export async function GET(request: Request) {
     ...invite,
     position: invite.position.title,
     priorities: JSON.parse(invite.priorities),
+    guarantors: invite.guarantors.map((person) => ({
+      id: person.id,
+      name: person.name,
+      email: person.email,
+      institution: person.institution,
+      phone: person.phone,
+      recommendation: person.recommendation,
+      invited: Boolean(person.invitedAt),
+      completed: Boolean(person.submittedAt),
+      signatureData: person.signatureData
+        ? `/api/admin/nominations/file?id=${encodeURIComponent(invite.id)}&field=signature&guarantor=${encodeURIComponent(person.id)}`
+        : null,
+    })),
     passportData: invite.passportData
       ? `/api/admin/nominations/file?id=${encodeURIComponent(invite.id)}&field=passport`
       : null,
@@ -100,6 +118,14 @@ export async function PATCH(request: Request) {
     });
     return NextResponse.json({ ok: true, status: "REJECTED" });
   }
+  const completedGuarantors = await db.guarantor.count({
+    where: { nominationId: id, submittedAt: { not: null } },
+  });
+  if (completedGuarantors < REQUIRED_GUARANTORS)
+    return NextResponse.json(
+      { message: "Both guarantors must complete their forms before this nomination can be approved and published." },
+      { status: 409 },
+    );
   if (!invite.passportData)
     return NextResponse.json(
       { message: "The candidate must upload a passport before approval." },
@@ -124,6 +150,9 @@ export async function PATCH(request: Request) {
       const current = await tx.nominationInvite.findUnique({ where: { id } });
       if (!current || current.status !== "SUBMITTED")
         throw new Error("ALREADY_REVIEWED");
+      if (await tx.guarantor.count({
+        where: { nominationId: id, submittedAt: { not: null } },
+      }) < REQUIRED_GUARANTORS) return null;
       const candidateData = {
         positionId: current.positionId,
         name: current.candidateName,
@@ -170,13 +199,44 @@ export async function PATCH(request: Request) {
     },
     { maxWait: 30_000, timeout: 120_000 },
   );
+  if (!candidate) return NextResponse.json(
+    { message: "Both guarantors must complete their forms before this nomination can be approved and published." },
+    { status: 409 },
+  );
   revalidatePath("/candidates");
   revalidatePath("/election");
   revalidatePath("/");
+
+  // Sent only after the publication is committed: the candidate is already live,
+  // so a mail failure must be reported, never allowed to undo the approval.
+  const link = `${getPublicOrigin(request)}/candidates/${candidate.slug}`;
+  let emailed = false;
+  let emailError: string | undefined;
+  if (!candidate.email) {
+    emailError = "This candidate has no email address on record, so no notification was sent.";
+  } else if (!mailerConfigured()) {
+    emailError = "Email is not configured, so no notification was sent. Share the profile link manually.";
+  } else {
+    const delivery = await sendMail({
+      to: candidate.email,
+      ...nominationApprovedMessage({
+        candidateName: candidate.name,
+        position: invite.position.title,
+        link,
+        origin: getPublicOrigin(request),
+      }),
+    });
+    emailed = delivery.sent;
+    emailError = delivery.error;
+  }
+
   return NextResponse.json({
     ok: true,
     status: "APPROVED",
     candidateId: candidate.id,
+    profileUrl: link,
+    emailed,
+    emailError,
   });
 }
 

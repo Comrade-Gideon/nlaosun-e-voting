@@ -70,6 +70,7 @@ type Receipt = {
   mission: string;
   vision: string;
   priorities: string[];
+  candidateEmail?: { sent: boolean };
   guarantors?: { name: string; email: string; sent: boolean }[];
   submittedAt: string;
 };
@@ -401,7 +402,7 @@ export function NominationPortal({
       !accepted.every(Boolean)
     ) {
       setError(
-        "Upload the student ID, academic transcript and signature, then accept every declaration.",
+        "Upload your membership evidence, means of identification and signature, name two guarantors, then accept every declaration.",
       );
       return;
     }
@@ -916,7 +917,7 @@ function GuarantorFields({
       <p>
         Provide two guarantors. When you submit this form, each one receives an
         email with a private link to supply their institution, phone number,
-        letter of recommendation and signature. You cannot complete their
+        letter of recommendation. You cannot complete their
         sections on their behalf.
       </p>
       {guarantors.map((item, index) => (
@@ -1150,6 +1151,16 @@ function NominationReceipt({ receipt }: { receipt: Receipt }) {
             Download / Print PDF
           </button>
         </div>
+        <section aria-label="Email delivery status">
+          <p>{receipt.candidateEmail?.sent
+            ? "Your acknowledgement email has been sent."
+            : "Your nomination is saved, but the acknowledgement email was not sent. Please keep this receipt."}</p>
+          {receipt.guarantors?.map((person, index) => (
+            <p key={index}>{person.name}: {person.sent
+              ? "Guarantor invitation sent."
+              : "Invitation could not be sent. Contact the Election Committee to resend it."}</p>
+          ))}
+        </section>
         <section>
           <header>
             <div>

@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 export const VOTING_COOKIE = "naliss_voting_session";
 export const SESSION_TTL_MS = 15 * 60 * 1000;
@@ -43,3 +43,15 @@ export function receiptCode() {
   return `NAL-${randomBytes(9).toString("hex").toUpperCase()}`;
 }
 
+
+/** Guarantor bearer tokens contain 256 random bits; their digest must be portable
+ * between app instances sharing the database, regardless of session secrets. */
+export function issueGuarantorToken() {
+  return `g1_${issueToken()}`;
+}
+
+export function hashGuarantorToken(token: string) {
+  return token.startsWith("g1_")
+    ? createHash("sha256").update(`guarantor:${token}`).digest("hex")
+    : hashToken(token); // Preserve existing invitations signed with this secret.
+}

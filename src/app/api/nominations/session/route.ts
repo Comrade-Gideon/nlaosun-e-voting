@@ -7,6 +7,7 @@ import { isExpectedNominationBlob, storedImageDataUrl } from "@/lib/blob-storage
 import { receiptCode } from "@/lib/security";
 import { getPublicOrigin } from "@/lib/site-url";
 import { REQUIRED_GUARANTORS, inviteGuarantors } from "@/lib/guarantors";
+import { nominationSubmittedMessage, sendMail } from "@/lib/mailer";
 import { currentNomination, isEditable } from "@/lib/nominations";
 
 const dataFile = z.string().max(6_000_000).nullable().optional();
@@ -121,9 +122,15 @@ export async function POST(request: Request) {
     }, { maxWait: 30_000, timeout: 120_000 });
     // Outside the transaction: email delivery is slow and must never roll back a
     // submission the candidate has already been told succeeded.
+    const origin = getPublicOrigin(request);
+    const candidateEmail = await sendMail({
+      to: result.email,
+      ...nominationSubmittedMessage({ ...result, origin }),
+    });
+    if (!candidateEmail.sent) console.error("Candidate acknowledgement failed:", candidateEmail.error);
     let guarantors: Awaited<ReturnType<typeof inviteGuarantors>> = [];
     try {
-      guarantors = await inviteGuarantors(current!.id, parsed.data.guarantors, getPublicOrigin(request), current!.expiresAt);
+      guarantors = await inviteGuarantors(current!.id, parsed.data.guarantors, origin, current!.expiresAt);
     } catch (error) {
       console.error("Guarantor invitations could not be created.", error);
     }
@@ -131,7 +138,10 @@ export async function POST(request: Request) {
     return NextResponse.json({
       ...result,
       passportData: passportForPrint,
-      guarantors: guarantors.map(({ name, email, sent }) => ({ name, email, sent })),
+      candidateEmail: { sent: candidateEmail.sent },
+      guarantors: parsed.data.guarantors.map(({ name, email }) => ({
+        name, email, sent: guarantors.some((item) => item.email === email && item.sent),
+      })),
     }, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.message === "INVALID_LINK") return NextResponse.json({ message: "This nomination is no longer open for submission." }, { status: 410 });

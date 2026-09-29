@@ -58,7 +58,14 @@ type Invitation = {
   reviewNote: string;
   guarantors: GuarantorSummary[];
 };
-type Review = Invitation & {
+type ReviewGuarantor = GuarantorSummary & {
+  institution: string;
+  phone: string;
+  recommendation: string;
+  signatureData: string | null;
+};
+type Review = Omit<Invitation, "guarantors"> & {
+  guarantors: ReviewGuarantor[];
   phone: string;
   currentPosition: string;
   permanentAddress: string;
@@ -228,6 +235,16 @@ export function NominationAdmin({
     if (!response.ok) return alert(result.message);
     setReview(null);
     setNote("");
+    setError("");
+    // Approval publishes first and emails afterwards, so say which of the two
+    // actually happened rather than implying the notification always goes out.
+    if (action === "APPROVE")
+      setNotice(
+        result.emailed
+          ? `Published. The candidate was emailed their profile link: ${result.profileUrl}`
+          : `Published at ${result.profileUrl}. ${result.emailError ?? "The approval email could not be sent."}`,
+      );
+    else setNotice("Correction requested. The candidate can reopen their form to fix it.");
     router.refresh();
   }
   function printCandidate() {
@@ -238,6 +255,18 @@ export function NominationAdmin({
         ".admin-print-candidate,.review-documents,.nomination-review-actions,.review-close",
       )
       .forEach((element) => element.remove());
+    // The passport comes from an admin-only route served "private, no-store", so
+    // the popup cannot reuse the copy already on screen — it refetches. Two things
+    // stop that arriving: next/image marks the tag lazy, and the popup's base
+    // document is about:blank, where a relative src is not reliably resolvable.
+    printable.querySelectorAll("img").forEach((image) => {
+      const source = image.getAttribute("src");
+      if (source) image.setAttribute("src", new URL(source, window.location.origin).href);
+      image.setAttribute("loading", "eager");
+      image.removeAttribute("decoding");
+      image.removeAttribute("srcset");
+      image.removeAttribute("sizes");
+    });
     const popup = window.open("", "_blank", "width=980,height=760");
     if (!popup) return alert("Allow pop-ups to print this candidate form.");
     popup.document.write(
@@ -245,7 +274,23 @@ export function NominationAdmin({
     );
     popup.document.close();
     popup.focus();
-    setTimeout(() => popup.print(), 300);
+    // Print once every image has actually settled rather than guessing at a
+    // delay: fetching the passport takes a second or more, and the print dialog
+    // captures whatever has rendered by then. The ceiling stops a missing or
+    // broken file from blocking printing altogether.
+    const images = Array.from(popup.document.images);
+    const loaded = images.map((image) =>
+      image.complete
+        ? Promise.resolve()
+        : new Promise<void>((resolve) => {
+            image.addEventListener("load", () => resolve(), { once: true });
+            image.addEventListener("error", () => resolve(), { once: true });
+          }),
+    );
+    const ceiling = new Promise<void>((resolve) => window.setTimeout(resolve, 8000));
+    void Promise.race([Promise.all(loaded).then(() => undefined), ceiling]).then(() =>
+      popup.print(),
+    );
   }
   const state = (item: Invitation) =>
     item.status === "DRAFT" && new Date(item.expiresAt) < new Date()
@@ -475,12 +520,12 @@ export function NominationAdmin({
             <div className="review-documents">
               <h3>Supporting Documents</h3>
               <DocumentLink
-                label="Student ID"
+                label="Membership Evidence"
                 name={review.studentIdName}
                 data={review.studentIdData}
               />
               <DocumentLink
-                label="Academic Transcript"
+                label="Any Means of Identification"
                 name={review.identificationName}
                 data={review.identificationData}
               />
@@ -490,6 +535,45 @@ export function NominationAdmin({
                 data={review.signatureData}
               />
             </div>
+            <div className="review-guarantors">
+              <h3>Guarantors</h3>
+              {review.guarantors.length === 0 ? (
+                <p className="review-guarantor-empty">
+                  No guarantors yet. They are created when the candidate submits the form.
+                </p>
+              ) : (
+                review.guarantors.map((person) => (
+                  <article key={person.id}>
+                    <header>
+                      <span>
+                        <strong>{person.name}</strong>
+                        <small>{person.email}</small>
+                      </span>
+                      <span className={`guarantor-state ${person.completed ? "done" : person.invited ? "sent" : "pending"}`}>
+                        {person.completed ? "Completed" : person.invited ? "Invited" : "Not sent"}
+                      </span>
+                    </header>
+                    {person.completed ? (
+                      <>
+                        <dl>
+                          <ReviewItem label="Institution" value={person.institution || "—"} />
+                          <ReviewItem label="Phone" value={person.phone || "—"} />
+                        </dl>
+                        <div className="review-text">
+                          <small>Letter of recommendation</small>
+                          <p>{person.recommendation}</p>
+                        </div>
+
+                      </>
+                    ) : (
+                      <p className="review-guarantor-empty">
+                        This guarantor has not completed their section yet.
+                      </p>
+                    )}
+                  </article>
+                ))
+              )}
+            </div>
             {review.reviewNote && (
               <div className="previous-review-note">
                 <b>Review note</b>
@@ -498,6 +582,10 @@ export function NominationAdmin({
             )}
             {review.status === "SUBMITTED" && (
               <footer className="nomination-review-actions">
+                {review.guarantors.filter((person) => person.completed).length < 2 && (
+                  <p role="status">Both guarantors must complete their forms before approval and publication.
+                    {" "}{review.guarantors.filter((person) => person.completed).length} of 2 completed.</p>
+                )}
                 <label>
                   Reason for rejection / correction request
                   <textarea
@@ -518,7 +606,7 @@ export function NominationAdmin({
                   <button
                     className="button"
                     onClick={() => decide("APPROVE")}
-                    disabled={reviewBusy}
+                    disabled={reviewBusy || review.guarantors.filter((person) => person.completed).length < 2}
                   >
                     <CheckCircle2 />
                     Approve & Publish
@@ -564,7 +652,7 @@ function DocumentLink({
         <FileText />
         <span>
           <b>{label}</b>
-          <small>{name}</small>
+          <small title={name || undefined}>{name}</small>
         </span>
       </div>
       <div className="review-document-actions">

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db, isTransientDatabaseError, withDatabaseRetry } from "@/lib/db";
-import { isExpectedNominationBlob } from "@/lib/blob-storage";
 import {
   RECOMMENDATION_MAX,
   RECOMMENDATION_MIN,
@@ -12,16 +11,12 @@ const draftSchema = z.object({
   institution: z.string().trim().max(200).optional(),
   phone: z.string().trim().max(30).optional(),
   recommendation: z.string().trim().max(RECOMMENDATION_MAX).optional(),
-  signatureData: z.string().max(6_000_000).nullable().optional(),
-  signatureName: z.string().max(180).nullable().optional(),
 });
 
 const finalSchema = draftSchema.extend({
   institution: z.string().trim().min(2).max(200),
   phone: z.string().trim().min(7).max(30),
   recommendation: z.string().trim().min(RECOMMENDATION_MIN).max(RECOMMENDATION_MAX),
-  signatureData: z.string().min(20).max(2_500_000),
-  signatureName: z.string().min(1).max(180),
 });
 
 const unavailable = () =>
@@ -58,8 +53,6 @@ export async function GET(_: Request, { params }: { params: Promise<{ token: str
         institution: guarantor.institution,
         phone: guarantor.phone,
         recommendation: guarantor.recommendation,
-        signatureData: guarantor.signatureData,
-        signatureName: guarantor.signatureName,
       },
     });
   } catch (error) {
@@ -78,9 +71,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ toke
 
     const parsed = draftSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success)
-      return NextResponse.json({ message: "Some fields are invalid or the file is too large." }, { status: 400 });
-    if (parsed.data.signatureData && !isExpectedNominationBlob(parsed.data.signatureData, guarantor.id, "signature"))
-      return NextResponse.json({ message: "The uploaded signature reference is invalid." }, { status: 400 });
+      return NextResponse.json({ message: "Some fields are invalid." }, { status: 400 });
 
     await withDatabaseRetry(() => db.guarantor.update({ where: { id: guarantor.id }, data: parsed.data }));
     return NextResponse.json({ ok: true });
@@ -107,8 +98,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
         },
         { status: 400 },
       );
-    if (!isExpectedNominationBlob(parsed.data.signatureData, guarantor.id, "signature"))
-      return NextResponse.json({ message: "The uploaded signature reference is invalid." }, { status: 400 });
 
     await withDatabaseRetry(() => db.guarantor.update({
       where: { id: guarantor.id },

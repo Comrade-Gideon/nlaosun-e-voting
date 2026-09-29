@@ -3,7 +3,7 @@ import { z } from "zod";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { db, withDatabaseRetry } from "@/lib/db";
 import { guarantorInviteMessage, mailerConfigured, sendMail } from "@/lib/mailer";
-import { hashToken, issueToken } from "@/lib/security";
+import { hashGuarantorToken, issueGuarantorToken } from "@/lib/security";
 import { getPublicOrigin } from "@/lib/site-url";
 
 const schema = z.object({
@@ -34,8 +34,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "This guarantor has already completed their section." }, { status: 409 });
 
   const email = parsed.data.email ?? guarantor.email;
-  const token = issueToken();
+  const token = issueGuarantorToken();
   const link = `${getPublicOrigin(request)}/guarantor/${token}`;
+
+  // Persist before sending: an email must never contain a token we failed to save.
+  const tokenHash = hashGuarantorToken(token);
+  await withDatabaseRetry(() => db.guarantor.update({
+    where: { id: guarantor.id },
+    data: { tokenHash, email, invitedAt: null },
+  }));
 
   const delivery = mailerConfigured()
     ? await sendMail({
@@ -46,13 +53,14 @@ export async function POST(request: Request) {
           position: guarantor.nomination.position.title,
           link,
           closesAt: guarantor.nomination.expiresAt,
+          origin: getPublicOrigin(request),
         }),
       })
-    : { sent: false, error: "Email is not configured (GMAIL_USER / GMAIL_APP_PASSWORD). Send this link manually." };
+    : { sent: false, error: "Email is not configured (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REFRESH_TOKEN). Send this link manually." };
 
-  await withDatabaseRetry(() => db.guarantor.update({
-    where: { id: guarantor.id },
-    data: { tokenHash: hashToken(token), email, invitedAt: delivery.sent ? new Date() : null },
+  if (delivery.sent) await withDatabaseRetry(() => db.guarantor.updateMany({
+    where: { id: guarantor.id, tokenHash },
+    data: { invitedAt: new Date() },
   }));
 
   // The raw link is returned once, so an administrator can pass it on by hand
