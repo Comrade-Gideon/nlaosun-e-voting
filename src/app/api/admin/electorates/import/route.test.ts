@@ -26,10 +26,11 @@ it("imports the friendly layout and normalizes phone numbers", async () => {
   expect(mocks.upsert.mock.calls[0][0].where).toEqual({ phoneNumber: "+2348031234567" });
 });
 
-it("accepts database column names, eligible and department", async () => {
+it("accepts database column names and eligible, and ignores other columns", async () => {
   const response = await upload("matriculationNumber,surname,displayName,eligible,department\n07062349871,Bello,Bello Maryam,false,LIS\n");
   expect(await response.json()).toEqual({ imported: 1, errors: [] });
-  expect(mocks.upsert.mock.calls[0][0].create).toMatchObject({ phoneNumber: "+2347062349871", displayName: "Bello Maryam", eligible: false, department: "LIS" });
+  expect(mocks.upsert.mock.calls[0][0].create).toMatchObject({ phoneNumber: "+2347062349871", displayName: "Bello Maryam", eligible: false });
+  expect(mocks.upsert.mock.calls[0][0].create).not.toHaveProperty("department");
 });
 
 it("rejects surname hashes this system did not produce", async () => {

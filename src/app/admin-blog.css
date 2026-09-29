@@ -891,3 +891,4 @@ body { font-family: inherit; }
 @media (max-width: 600px) { .review-guarantors dl { grid-template-columns: 1fr; } }
 
 .nomination-review-actions button:disabled{opacity:.5;cursor:not-allowed}
+.template-download{display:inline-block;margin:0 0 14px;font-weight:700;color:var(--brand);text-decoration:underline}

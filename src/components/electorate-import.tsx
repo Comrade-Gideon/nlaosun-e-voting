@@ -2,6 +2,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+// The exact layout the importer expects, so nobody has to rebuild it by hand.
+const TEMPLATE = "Phone Number,Full Name,Surname,Eligible\r\n08031234567,Adebayo Tunde,Adebayo,true\r\n";
+const TEMPLATE_HREF = `data:text/csv;charset=utf-8,${encodeURIComponent(TEMPLATE)}`;
+
 type Result = { tone: "notice" | "error"; text: string; details: string[] };
 
 export function ElectorateImport() {
@@ -46,7 +50,8 @@ export function ElectorateImport() {
 
   return <section className="admin-card">
     <h2>Upload Electorate List</h2>
-    <p>Required columns: Phone Number, Full Name, Surname. Optional: Department, Eligible. Any other columns are ignored. Numbers may be written as 0803…, +234 803… or 234803….</p>
+    <p>Required columns: Phone Number, Full Name, Surname. Optional: Eligible. Any other columns are ignored. Numbers may be written as 0803…, +234 803… or 234803….</p>
+    <a className="template-download" href={TEMPLATE_HREF} download="electorate-template.csv">Download CSV template</a>
     <label className="upload-box">{file?.name ?? "Drag and drop is supported by your browser, or click to browse"}<input type="file" accept=".csv,text/csv" onChange={e => { setFile(e.target.files?.[0]); setResult(null); }} /></label>
     <button className="button wide" onClick={upload} disabled={busy}>{busy ? "Uploading…" : "Upload CSV File"}</button>
     {result && <div className={result.tone} role={result.tone === "error" ? "alert" : "status"}>

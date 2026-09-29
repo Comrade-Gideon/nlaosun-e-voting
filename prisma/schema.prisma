@@ -177,7 +177,6 @@ model Voter {
   surnameNormalizedHash String
   displayName           String
   eligible              Boolean         @default(true)
-  department            String          @default("")
   ballots               Ballot[]
   sessions              VotingSession[]
   createdAt             DateTime        @default(now())

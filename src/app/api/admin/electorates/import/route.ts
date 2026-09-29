@@ -41,11 +41,10 @@ export async function POST(request: Request) {
     fullName: index("fullname", "displayname", "studentname", "name"),
     surname: index("surname", "lastname"),
     surnameHash: index("surnamenormalizedhash"),
-    department: index("department"),
     eligible: index("eligible"),
   };
   if (indexes.phone < 0 || indexes.fullName < 0 || (indexes.surname < 0 && indexes.surnameHash < 0)) {
-    return NextResponse.json({ message: "CSV requires Phone Number, Full Name and Surname columns (Department and Eligible are optional)." }, { status: 400 });
+    return NextResponse.json({ message: "CSV requires Phone Number, Full Name and Surname columns (Eligible is optional)." }, { status: 400 });
   }
 
   let imported = 0;
@@ -81,7 +80,6 @@ export async function POST(request: Request) {
         surnameNormalizedHash,
         displayName,
         eligible,
-        ...(indexes.department >= 0 ? { department: cell(data, indexes.department) } : {}),
       };
       await withDatabaseRetry(() => db.voter.upsert({
         where: { phoneNumber },
@@ -90,8 +88,10 @@ export async function POST(request: Request) {
       }));
       imported++;
     }
-  } catch {
-    return NextResponse.json({ message: "The electorate database is temporarily unavailable. Please try the upload again." }, { status: 503 });
+  } catch (error) {
+    // Logged so the terminal shows the real cause; the admin sees the safe message.
+    console.error("[electorates/import] failed", { imported, error: error instanceof Error ? `${error.name}: ${error.message.slice(0, 300)}` : String(error) });
+    return NextResponse.json({ message: `The electorate database is temporarily unavailable${imported ? ` (${imported} voters were saved before the error)` : ""}. Please try the upload again.` }, { status: 503 });
   }
   return NextResponse.json({ imported, errors: errors.slice(0, 20) });
 }
