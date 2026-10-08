@@ -16,12 +16,6 @@ const startSchema = z
     positionId: z.string().min(1),
     lrcnCertified: z.boolean(),
     lrcnNumber: z.string().trim().max(60).optional(),
-  })
-  // Certification is optional, but a member who says they are certified must say
-  // which registration number they hold.
-  .refine((data) => !data.lrcnCertified || Boolean(data.lrcnNumber && data.lrcnNumber.length >= 3), {
-    message: "Enter your LRCN registration number.",
-    path: ["lrcnNumber"],
   });
 
 const closedMessage = (state: string, opensAt: Date | null) =>
@@ -33,7 +27,7 @@ export async function POST(request: Request) {
   const parsed = startSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success)
     return NextResponse.json(
-      { message: "Enter your full name, email address and the position you are contesting. If you are LRCN certified, include your registration number." },
+      { message: "Enter your full name, email address and the position you are contesting." },
       { status: 400 },
     );
 
@@ -88,7 +82,7 @@ export async function POST(request: Request) {
           candidateName: parsed.data.candidateName,
           positionId: position.id,
           lrcnCertified: parsed.data.lrcnCertified,
-          lrcnNumber: parsed.data.lrcnCertified ? parsed.data.lrcnNumber : null,
+          lrcnNumber: parsed.data.lrcnCertified ? parsed.data.lrcnNumber || null : null,
           expiresAt: election.nominationsCloseAt!,
         },
       }));
@@ -110,7 +104,7 @@ export async function POST(request: Request) {
         email,
         electionId: election.id,
         lrcnCertified: parsed.data.lrcnCertified,
-        lrcnNumber: parsed.data.lrcnCertified ? parsed.data.lrcnNumber : null,
+        lrcnNumber: parsed.data.lrcnCertified ? parsed.data.lrcnNumber || null : null,
         positionId: position.id,
         expiresAt: election.nominationsCloseAt!,
         showCountdown: true,

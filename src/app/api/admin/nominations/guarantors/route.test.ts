@@ -34,11 +34,12 @@ it("issues a different link on every resend and stores its hash", async () => {
   expect(a).not.toBe(b);
 });
 
-it("marks a resent email as replacing earlier links, with its own subject", async () => {
+it("gives a resent email its own subject without the replacement notice", async () => {
   const { link } = await (await resend()).json();
   const message = mocks.sendMail.mock.calls[0][0];
   expect(message.subject).toMatch(/^New guarantor link \(/);
-  expect(message.text).toContain("replaces any guarantor link sent to you earlier");
+  expect(message.text).not.toContain("This is a new link issued on");
+  expect(message.html).not.toContain("This is a new link issued on");
   expect(message.text).toContain(link);
   expect(message.html).toContain(link);
 });

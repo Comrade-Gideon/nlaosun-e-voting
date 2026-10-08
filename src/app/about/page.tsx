@@ -16,35 +16,35 @@ import { SiteFooter } from "@/components/site-footer";
 const team = [
   {
     name: "Gideon Oluwatomiwa AYODELE",
-    role: "Chairman, NLA Osun State Chapter 2026 Election Committee",
+    role: "Chairman, NLA (Osun State Chapter) 2026 Election Committee",
     duty: "Provides electoral leadership and safeguards a fair, credible, and transparent election.",
     image: "/gideon-oluwatomiwa-ayodele.png",
     Icon: Scale,
   },
   {
     name: "Ayooluwa Gideon OLOYEDE",
-    role: "General Secretary, NLA Osun State Chapter 2026 Election Committee",
-    duty: "Serves the General Secretary of NLA Osun State Chapter 2026 Election Committee.",
+    role: "General Secretary, NLA (Osun State Chapter) 2026 Election Committee",
+    duty: "Serves the General Secretary of NLA (Osun State Chapter) 2026 Election Committee.",
     image: "/ayooluwa-gideon-oloyede-clean.png",
     Icon: ClipboardCheck,
   },
   {
     name: "Emmanuel Oluwaseyi OLULOWO",
-    role: "PRO, NLA Osun State Chapter 2026 Election Committee",
+    role: "PRO, NLA (Osun State Chapter) 2026 Election Committee",
     duty: "Coordinates official publicity and voter communication for the Election Committee.",
     image: null,
     Icon: Megaphone,
   },
   {
     name: "Solomon Ayomide OLARINRE",
-    role: "Member, NLA Osun State Chapter 2026 Election Committee",
+    role: "Member, NLA (Osun State Chapter) 2026 Election Committee",
     duty: null,
     image: "/olarine_solomon.png",
     Icon: BadgeCheck,
   },
   {
     name: "Rhoda",
-    role: "Member, NLA Osun State Chapter 2026 Election Committee",
+    role: "Member, NLA (Osun State Chapter) 2026 Election Committee",
     duty: null,
     image: null,
     Icon: ShieldCheck,
@@ -62,7 +62,7 @@ export default function About() {
               <Sparkles />
               About the committee
             </span>
-            <h1>About NLA Osun State Chapter</h1>
+            <h1>About NLA (Osun State Chapter)</h1>
             <p>
               The Election Committee of the Nigerian Library Association,
               Osun State Chapter administers a fair, secure, and credible
@@ -74,7 +74,7 @@ export default function About() {
               Advancing librarianship in Osun State
             </strong>
           </div>
-          <div className="about-mark" aria-label="NLA Osun State Chapter">
+          <div className="about-mark" aria-label="NLA (Osun State Chapter)">
             <ShieldCheck />
             <small>NLA Osun</small>
           </div>

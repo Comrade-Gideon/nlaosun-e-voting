@@ -167,7 +167,7 @@ ${options.preheader ? `<div style="display:none;max-height:0;overflow:hidden;opa
                    style="display:block;width:46px;height:46px;border:0;outline:none;">
             </td>
             <td style="font-family:${font};color:#ffffff;">
-              <div style="font-size:17px;font-weight:900;line-height:1.2;">NLA Osun State Chapter</div>
+              <div style="font-size:17px;font-weight:900;line-height:1.2;">NLA (Osun State Chapter)</div>
               <div style="font-size:12px;opacity:.9;">Election Committee</div>
             </td>
           </tr></table>
@@ -205,13 +205,13 @@ export function nominationSubmittedMessage(details: {
 }) {
   const text = `Dear ${details.candidateName},
 
-Your nomination for ${details.position} has been submitted to the NLA Osun State Chapter Election Committee.
+Your nomination for ${details.position} has been submitted to the NLA (Osun State Chapter) Election Committee.
 
 Receipt: ${details.receipt}
 
 Your nomination is pending review. Your two guarantors must complete their sections before the nomination deadline. Submission does not mean approval.
 
-NLA Osun State Chapter Election Committee`;
+NLA (Osun State Chapter) Election Committee`;
   return {
     subject: `Nomination received — ${details.position}`,
     text,
@@ -242,7 +242,7 @@ ${details.link}
 
 Please review it. If anything needs correcting, reply to this message and the Election Committee will assist.
 
-NLA Osun State Chapter Election Committee`;
+NLA (Osun State Chapter) Election Committee`;
 
   const html = brandedEmail({
     origin: details.origin,
@@ -267,7 +267,7 @@ export function guarantorInviteMessage(details: {
   link: string;
   closesAt: Date;
   origin: string;
-  /** Set when an administrator resends: the email then says it replaces earlier links. */
+  /** Set when an administrator resends to give the email a distinct subject. */
   reissuedAt?: Date;
 }) {
   const deadline = new Intl.DateTimeFormat("en-NG", {
@@ -277,16 +277,12 @@ export function guarantorInviteMessage(details: {
   }).format(details.closesAt);
   // Resent invitations used to be identical apart from the link, so Gmail threaded
   // them and collapsed each new body as quoted text: guarantors kept clicking the
-  // first (already replaced) link. A distinct subject and opening line stop that.
+  // first (already replaced) link. A distinct subject helps distinguish resends.
   const issued = details.reissuedAt
     ? new Intl.DateTimeFormat("en-NG", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Africa/Lagos" }).format(details.reissuedAt)
     : "";
-  const replaces = issued
-    ? `This is a new link issued on ${issued} WAT. It replaces any guarantor link sent to you earlier, which no longer works.`
-    : "";
-
   const text = `Dear ${details.guarantorName},
-${replaces ? `\n${replaces}\n` : ""}
+
 ${details.candidateName} has named you as a guarantor for their nomination as ${details.position} in the Nigerian Library Association, Osun State Chapter election.
 
 Please complete your guarantor section using the link below. It is unique to you and should not be forwarded.
@@ -297,15 +293,14 @@ You will be asked for your institution, phone number, a letter of recommendation
 
 Please complete it before ${deadline} WAT.
 
-NLA Osun State Chapter Election Committee`;
+NLA (Osun State Chapter) Election Committee`;
 
   const html = brandedEmail({
     origin: details.origin,
     heading: issued ? `Your new guarantor link` : `You have been named a guarantor`,
-    preheader: replaces || `${details.candidateName} has named you as a guarantor.`,
+    preheader: `${details.candidateName} has named you as a guarantor.`,
     bodyHtml: `
-        <p style="margin:0 0 14px;">Dear ${escapeHtml(details.guarantorName)},</p>${replaces ? `
-        <p style="margin:0 0 14px;padding:12px 14px;background:#fff7e0;border:1px solid #f0d58a;border-radius:8px;"><strong>${escapeHtml(replaces)}</strong></p>` : ""}
+        <p style="margin:0 0 14px;">Dear ${escapeHtml(details.guarantorName)},</p>
         <p style="margin:0 0 14px;"><strong>${escapeHtml(details.candidateName)}</strong> has named you as a guarantor for their nomination as <strong>${escapeHtml(details.position)}</strong>.</p>
         <p style="margin:0 0 20px;">Please complete your guarantor section using the button below. The link is unique to you and should not be forwarded.</p>
         <p style="margin:0 0 20px;"><a href="${escapeHtml(details.link)}" style="display:inline-block;padding:13px 24px;background:#0f7a3d;color:#ffffff;border-radius:8px;text-decoration:none;font-weight:700;">Complete Guarantor Form</a></p>

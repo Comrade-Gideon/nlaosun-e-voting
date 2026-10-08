@@ -590,7 +590,9 @@ export function NominationPortal({
               <span>LRCN Certification</span>
               <p>
                 {invite.lrcnCertified
-                  ? `You indicated that you are LRCN certified, registration number ${invite.lrcnNumber}.`
+                  ? invite.lrcnNumber
+                    ? `You indicated that you are LRCN certified, registration number ${invite.lrcnNumber}.`
+                    : "You indicated that you are LRCN certified."
                   : "You indicated that you are not LRCN certified. This does not affect your nomination."}
               </p>
             </div>
@@ -746,7 +748,7 @@ export function NominationPortal({
                 </div>
                 <div>
                   <dt>LRCN Certified</dt>
-                  <dd>{invite.lrcnCertified ? `Yes — ${invite.lrcnNumber}` : "No"}</dd>
+                  <dd>{invite.lrcnCertified ? (invite.lrcnNumber ? `Yes — ${invite.lrcnNumber}` : "Yes") : "No"}</dd>
                 </div>
                 <div>
                   <dt>Current Position</dt>
@@ -905,8 +907,8 @@ function NominationStart({
         </fieldset>
         {certified === "yes" && (
           <label>
-            LRCN Registration Number
-            <input name="lrcnNumber" required minLength={3} maxLength={60} placeholder="e.g. LRCN/2019/04471" />
+            LRCN Registration Number (optional)
+            <input name="lrcnNumber" minLength={3} maxLength={60} placeholder="e.g. LRCN/2019/04471" />
           </label>
         )}
         <label>
@@ -1006,7 +1008,7 @@ function NominationShell({ children }: { children: React.ReactNode }) {
             priority
           />
           <span>
-            <b>NLA Osun State Chapter</b>
+            <b>NLA (Osun State Chapter)</b>
             <small>CEC Election — Nomination Portal</small>
           </span>
         </div>
@@ -1030,7 +1032,7 @@ function NominationShell({ children }: { children: React.ReactNode }) {
           height={32}
           alt="Nigerian Library Association logo"
         />
-        © 2026 NLA Osun State Chapter · Election Committee{" "}
+        © 2026 NLA (Osun State Chapter) · Election Committee{" "}
         <span>
           <LockKeyhole />
           Your information is protected and handled confidentially.
@@ -1215,7 +1217,7 @@ function NominationReceipt({ receipt }: { receipt: Receipt }) {
                 alt="Nigerian Library Association logo"
               />
               <span>
-                <b>NLA Osun State Chapter</b>
+                <b>NLA (Osun State Chapter)</b>
                 <small>Candidate Nomination Acknowledgement</small>
               </span>
             </div>
@@ -1245,7 +1247,7 @@ function NominationReceipt({ receipt }: { receipt: Receipt }) {
             </div>
             <div>
               <dt>LRCN Certified</dt>
-              <dd>{receipt.lrcnCertified ? `Yes — ${receipt.lrcnNumber}` : "No"}</dd>
+              <dd>{receipt.lrcnCertified ? (receipt.lrcnNumber ? `Yes — ${receipt.lrcnNumber}` : "Yes") : "No"}</dd>
             </div>
             <div>
               <dt>Current Position</dt>

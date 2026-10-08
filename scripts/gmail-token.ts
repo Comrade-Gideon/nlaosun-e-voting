@@ -16,7 +16,7 @@ import { createServer } from "node:http";
 import { readFileSync, writeFileSync } from "node:fs";
 
 const PORT = 53682;
-const REDIRECT_URI = `http://localhost:${PORT}/callback`;
+const REDIRECT_URI = "https://vote.nlaosun.workers.dev/callback";
 const SCOPE = "https://www.googleapis.com/auth/gmail.send";
 
 const clientId = process.env.GOOGLE_CLIENT_ID;

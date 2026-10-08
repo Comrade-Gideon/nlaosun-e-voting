@@ -45,7 +45,7 @@ function Shell({ children }: { children: React.ReactNode }) {
         <div className="nomination-logo">
           <Image src="/nla-osun-logo.png" width={64} height={64} alt="Nigerian Library Association logo" priority />
           <span>
-            <b>NLA Osun State Chapter</b>
+            <b>NLA (Osun State Chapter)</b>
             <small>Guarantor Form</small>
           </span>
         </div>

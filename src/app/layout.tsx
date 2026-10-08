@@ -9,11 +9,11 @@ const raleway = Raleway({ subsets: ["latin"], display: "swap" });
 
 export const metadata: Metadata = {
   metadataBase: getConfiguredSiteUrl() ?? new URL("http://localhost:3000"),
-  title: "NLA Osun State Chapter E-Voting",
+  title: "NLA (Osun State Chapter) E-Voting",
   description: "Secure, transparent online voting for the Nigerian Library Association, Osun State Chapter.",
   icons: { icon: "/favicon.ico", shortcut: "/favicon.ico" },
   openGraph: {
-    title: "NLA Osun State Chapter E-Voting",
+    title: "NLA (Osun State Chapter) E-Voting",
     description: "Secure, transparent online voting for the Nigerian Library Association, Osun State Chapter.",
     images: [
       {
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "NLA Osun State Chapter E-Voting",
+    title: "NLA (Osun State Chapter) E-Voting",
     description: "Secure, transparent online voting for the Nigerian Library Association, Osun State Chapter.",
     images: [openGraphImage.src],
   },

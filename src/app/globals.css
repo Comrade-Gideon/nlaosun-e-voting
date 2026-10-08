@@ -928,6 +928,14 @@ footer .brand b {
   display: grid;
   grid-template-columns: 300px 1fr;
 }
+.admin-navigation {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.admin-main {
+  min-width: 0;
+}
 .admin-sidebar {
   background: var(--brand-dark);
   color: #bac8c0;
@@ -938,6 +946,7 @@ footer .brand b {
   position: sticky;
   top: 0;
   height: 100vh;
+  overflow-y: auto;
 }
 .admin-brand {
   display: flex;
@@ -960,7 +969,7 @@ footer .brand b {
   display: block;
 }
 .admin-brand b {
-  font-size: 22px;
+  font-size: 18px;
 }
 .admin-brand small {
   color: #a5bcaf;
@@ -970,7 +979,7 @@ footer .brand b {
   margin: 0 14px 15px;
   color: #678071;
 }
-.admin-sidebar > a,
+.admin-navigation > a,
 .admin-sidebar > button {
   color: #bac8c0;
   border: 0;
@@ -984,11 +993,11 @@ footer .brand b {
   font-size: 17px;
   cursor: pointer;
 }
-.admin-sidebar > a svg,
+.admin-navigation > a svg,
 .admin-sidebar > button svg {
   width: 20px;
 }
-.admin-sidebar > a.active {
+.admin-navigation > a.active {
   background: var(--brand);
   color: #fff;
   font-weight: 700;
@@ -1273,11 +1282,13 @@ footer .brand b {
   }
   .admin-brand span,
   .menu-label,
-  .admin-sidebar > a:not(.active),
-  .admin-sidebar > a {
+  .admin-navigation > a span {
+    display: none;
+  }
+  .admin-sidebar > button {
     font-size: 0;
   }
-  .admin-sidebar > a svg {
+  .admin-navigation > a svg {
     width: 24px;
   }
   .admin-main > header {
@@ -1313,14 +1324,29 @@ footer .brand b {
     padding: 10px;
   }
   .admin-brand,
-  .menu-label,
-  .admin-sidebar > button {
+  .menu-label {
     display: none;
   }
-  .admin-sidebar > a,
-  .admin-sidebar > a:not(.active) {
-    font-size: 0;
+  .admin-navigation {
+    flex-direction: row;
+    gap: 6px;
+  }
+  .admin-navigation > a {
+    font-size: 13px;
     padding: 12px;
+    white-space: nowrap;
+    gap: 8px;
+  }
+  .admin-navigation > a span {
+    display: inline;
+  }
+  .admin-sidebar > button {
+    margin-top: 0;
+    flex-shrink: 0;
+    font-size: 13px;
+  }
+  .admin-main > header > span {
+    font-size: 12px;
   }
   .admin-main > header {
     height: 72px;
@@ -1581,7 +1607,7 @@ footer .brand b {
 }
 
 /* ============================================================
-   Landing page — NLA Osun State Chapter
+   Landing page — NLA (Osun State Chapter)
    ============================================================ */
 .header-cta {
   background: var(--brand-accent);

@@ -59,7 +59,7 @@ export default async function HomePage() {
       <section className="home-hero">
         <div className="home-hero-copy">
           <span className="home-eyebrow"><Landmark />NIGERIAN LIBRARY ASSOCIATION · OSUN STATE CHAPTER</span>
-          <h1>{election?.title ?? "2026 NLA Osun State Chapter Election"}</h1>
+          <h1>{election?.title.replace(/NLA\s+Osun State Chapter/g, "NLA (Osun State Chapter)") ?? "2026 NLA (Osun State Chapter) Election"}</h1>
           <p className="home-hero-tagline">Your Voice. Your Vote. Your Future.</p>
           <p className="home-hero-lede">
             {election?.description ?? `Participate in shaping the next chapter of leadership for the ${CHAPTER}.`} Eligible
@@ -96,7 +96,7 @@ export default async function HomePage() {
             <div><Clock /><dt>Voting Closes</dt><dd>{formatWatDate(election.closesAt)} · {formatWatTime(election.closesAt)}</dd></div>
           </>}
           <div><Globe /><dt>Voting Method</dt><dd>Online Voting</dd></div>
-          <div><IdCard /><dt>Eligibility</dt><dd>Registered NLA Osun State Chapter Members</dd></div>
+          <div><IdCard /><dt>Eligibility</dt><dd>Registered NLA (Osun State Chapter) Members</dd></div>
         </dl>
       </section>}
 
