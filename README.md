@@ -14,8 +14,18 @@ npm run dev
 
 The local seed provides a demo eligible voter:
 
-- Matriculation number: `ETL/2023/001`
-- Surname: `Okafor`
+- Username: `demo.okafor`
+- Password: `DemoVoter2026!`
+
+Voters sign in with username and password and see “Welcome, Full Name” on the ballot.
+Upload electorate CSVs in the admin panel using `username,password,fullname` columns (optional: `eligible`). Usernames are case-insensitive; passwords are case-sensitive and stored as salted PBKDF2 hashes. Re-importing a username updates the same voter, preserving ballot history. Without an `eligible` column, existing eligibility is preserved.
+
+Keep credential files outside `public/`. Local credentials are in the ignored `private/` folder. Apply migrations, then import a private CSV with:
+
+```bash
+node --env-file=.env.local node_modules/prisma/build/index.js migrate deploy
+npm run db:import-voters -- private/user_credentials.csv
+```
 
 Change `SESSION_SECRET` and `ADMIN_PASSWORD` before deploying. Use the pooled Neon URL for `DATABASE_URL` and the direct URL for `DATABASE_URL_UNPOOLED`.
 

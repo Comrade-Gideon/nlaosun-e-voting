@@ -1,35 +1,32 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { usernameSchema, passwordSchema, verifyVoterPassword } from "@/lib/voter-credentials";
 import { db } from "@/lib/db";
 import { getPublishedElectionSummary, votingClosedNotice } from "@/lib/elections";
 import {
-  hashSurname,
-  hashesEqual,
   hashToken,
   issueToken,
-  normalizePhone,
   SESSION_TTL_MS,
   VOTING_COOKIE,
 } from "@/lib/security";
 
 const inputSchema = z.object({
-  phoneNumber: z.string().trim().min(7).max(30),
-  surname: z.string().trim().min(2).max(80),
+  username: usernameSchema,
+  password: passwordSchema,
 });
 
 export async function POST(request: Request) {
   const parsed = inputSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ message: "Enter a valid phone number and surname." }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ message: "Enter your username and password." }, { status: 400 });
 
   const election = await getPublishedElectionSummary();
   // Checked before the voter lookup, so outside the window nobody can use this
-  // endpoint to test whether a phone number is on the register.
+  // endpoint to test whether a username is on the register.
   const closed = votingClosedNotice(election);
   if (closed) return NextResponse.json({ code: "VOTING_NOT_OPEN", message: closed.message }, { status: 403 });
-  const phoneNumber = normalizePhone(parsed.data.phoneNumber);
-  const voter = phoneNumber ? await db.voter.findUnique({ where: { phoneNumber } }) : null;
-  const validIdentity = voter && hashesEqual(voter.surnameNormalizedHash, hashSurname(parsed.data.surname));
+  const voter = await db.voter.findUnique({ where: { username: parsed.data.username } });
+  const validIdentity = await verifyVoterPassword(parsed.data.password, voter?.passwordHash);
   const existingBallot = voter && election
     ? await db.ballot.findUnique({ where: { electionId_voterId: { electionId: election.id, voterId: voter.id } } })
     : null;

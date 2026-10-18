@@ -20,6 +20,7 @@ import { uploadViaPresignedUrl } from "@/lib/upload-client";
 
 type Draft = {
   phone: string;
+  institution: string;
   currentPosition: string;
   permanentAddress: string;
   pka: string;
@@ -59,6 +60,7 @@ type Receipt = {
   lrcnCertified: boolean;
   lrcnNumber: string;
   position: string;
+  institution: string;
   currentPosition: string;
   permanentAddress: string;
   phone: string;
@@ -77,6 +79,7 @@ type Receipt = {
 type LinkState = { title: string; message: string; redirect: boolean };
 const blank: Draft = {
   phone: "",
+  institution: "",
   currentPosition: "",
   permanentAddress: "",
   pka: "",
@@ -396,6 +399,10 @@ export function NominationPortal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, accepted, invite, receipt, invalid]);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [step]);
+
   async function next() {
     setError("");
     // Name only what is actually missing on this step, not every requirement.
@@ -407,6 +414,7 @@ export function NominationPortal({
       if (!data.currentPosition.trim()) missing.push("current position at your place of work");
     }
     if (step === 2) {
+      if (data.institution.trim().length < 2) missing.push("institution (at least 2 characters)");
       if (!data.passportData) missing.push("passport photograph");
       if (!data.pka.trim()) missing.push("PKA (Politically Known As)");
       if (!data.tagline.trim()) missing.push("campaign slogan");
@@ -436,8 +444,6 @@ export function NominationPortal({
     setError("");
     if (busy) return;
     const missing: string[] = [];
-    if (!data.studentIdData) missing.push("membership evidence");
-    if (!data.identificationData) missing.push("means of identification");
     const guarantors = data.guarantors.filter(
       (g) => g.name.trim() && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(g.email.trim()),
     ).length;
@@ -586,20 +592,21 @@ export function NominationPortal({
                 maxLength={160}
               />
             </label>
-            <div className="nomination-lrcn">
-              <span>LRCN Certification</span>
-              <p>
-                {invite.lrcnCertified
-                  ? invite.lrcnNumber
-                    ? `You indicated that you are LRCN certified, registration number ${invite.lrcnNumber}.`
-                    : "You indicated that you are LRCN certified."
-                  : "You indicated that you are not LRCN certified. This does not affect your nomination."}
-              </p>
-            </div>
           </section>
         )}
         {step === 2 && (
           <section className="nomination-section">
+            <label>
+              Institution *
+              <input
+                value={data.institution}
+                onChange={(e) => field("institution", e.target.value)}
+                placeholder="Enter the name of your institution"
+                minLength={2}
+                maxLength={200}
+                required
+              />
+            </label>
             <FileUpload
               title="Passport Photograph *"
               note="JPG or PNG · Max 1.5MB"
@@ -661,7 +668,7 @@ export function NominationPortal({
               onChange={(value) => field("vision", value)}
             />
             <div className="priority-inputs">
-              <strong>Top Three Priorities *</strong>
+              <strong>Top Three Priorities if elected *</strong>
               {data.priorities.map((value, index) => (
                 <label key={index}>
                   <b>0{index + 1}</b>
@@ -686,22 +693,10 @@ export function NominationPortal({
               <p>
                 <b>Your documents are protected</b>
                 <br />
-                Supporting files are used only for verification and will not
+                Your signature is used only for verification and will not
                 appear on your public profile or printout.
               </p>
             </div>
-            <FileUpload
-              title="Membership Evidence *"
-              note="Your NLA membership card or certificate · PDF, JPG or PNG · Max 4MB"
-              name={data.studentIdName}
-              onFile={(file) => attach("studentId", file)}
-            />
-            <FileUpload
-              title="Any Means of Identification *"
-              note="National ID, driver&apos;s licence, international passport or voter&apos;s card · PDF, JPG or PNG · Max 4MB"
-              name={data.identificationName}
-              onFile={(file) => attach("identification", file)}
-            />
             <GuarantorFields
               guarantors={data.guarantors}
               onChange={(next) => field("guarantors", next)}
@@ -751,6 +746,10 @@ export function NominationPortal({
                   <dd>{invite.lrcnCertified ? (invite.lrcnNumber ? `Yes — ${invite.lrcnNumber}` : "Yes") : "No"}</dd>
                 </div>
                 <div>
+                  <dt>Institution</dt>
+                  <dd>{data.institution}</dd>
+                </div>
+                <div>
                   <dt>Current Position</dt>
                   <dd>{data.currentPosition}</dd>
                 </div>
@@ -758,7 +757,7 @@ export function NominationPortal({
               <p>
                 <CheckCircle2 />
                 Passport and profile will become public after submission.
-                Supporting documents remain private.
+                Your signature remains private.
               </p>
             </div>
           </section>
@@ -1252,6 +1251,10 @@ function NominationReceipt({ receipt }: { receipt: Receipt }) {
             <div>
               <dt>Current Position</dt>
               <dd>{receipt.currentPosition}</dd>
+            </div>
+            <div>
+              <dt>Institution</dt>
+              <dd>{receipt.institution}</dd>
             </div>
             <div>
               <dt>Phone Number</dt>

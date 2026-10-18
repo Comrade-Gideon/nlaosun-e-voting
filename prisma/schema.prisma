@@ -105,6 +105,7 @@ model NominationInvite {
   election              Election         @relation(fields: [electionId], references: [id], onDelete: Cascade)
   lrcnCertified         Boolean          @default(false)
   lrcnNumber            String?
+  institution           String           @default("")
   currentPosition       String           @default("")
   positionId            String
   position              Position         @relation(fields: [positionId], references: [id], onDelete: Cascade)
@@ -171,10 +172,11 @@ model Guarantor {
 
 model Voter {
   id                    String          @id @default(cuid())
-  // Voters sign in with phone number + surname. Stored in the column that held
-  // matriculation numbers (NALISS era), so no database migration was needed.
-  phoneNumber           String          @unique @map("matriculationNumber")
-  surnameNormalizedHash String
+  username              String?         @unique
+  passwordHash          String?
+  // Retained for existing voter records and their ballot history.
+  phoneNumber           String?         @unique @map("matriculationNumber")
+  surnameNormalizedHash String          @default("")
   displayName           String
   eligible              Boolean         @default(true)
   ballots               Ballot[]

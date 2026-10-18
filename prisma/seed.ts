@@ -1,9 +1,7 @@
 import { PrismaClient } from "@prisma/client";
-import { createHmac } from "node:crypto";
+import { hashVoterPassword } from "../src/lib/voter-credentials";
 
 const db = new PrismaClient();
-const secret = process.env.SESSION_SECRET!;
-const hashSurname = (value: string) => createHmac("sha256", secret).update(`surname:${value.trim().toLowerCase()}`).digest("hex");
 
 const positions = [
   ["President", "president", "Leads the association and represents all members before the department."],
@@ -72,12 +70,12 @@ async function main() {
 
   await db.voter.createMany({
     data: [
-      { phoneNumber: "+2348030000001", surnameNormalizedHash: hashSurname("Okafor"), displayName: "Chinedu Okafor" },
-      { phoneNumber: "+2348030000002", surnameNormalizedHash: hashSurname("Bello"), displayName: "Maryam Bello" },
+      { username: "demo.okafor", passwordHash: await hashVoterPassword("DemoVoter2026!"), displayName: "Chinedu Okafor" },
+      { username: "demo.bello", passwordHash: await hashVoterPassword("DemoBello2026!"), displayName: "Maryam Bello" },
     ],
   });
 
-  console.log("Seeded NALISS election. Demo voter: NALISS/2023/001 / Okafor");
+  console.log("Seeded NALISS election. Demo voter username: demo.okafor (password documented in README)");
 }
 
 main().finally(() => db.$disconnect());

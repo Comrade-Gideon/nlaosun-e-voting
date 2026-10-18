@@ -199,6 +199,7 @@ body { font-family: inherit; }
 .about-team-avatar svg { width: 34px; height: 34px; }
 .about-team-avatar.has-photo { overflow: hidden; width: 104px; height: 104px; padding: 0; border: 5px solid #e8fcf0; background: #f7f7f8; }
 .about-team-avatar.has-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center 18%; }
+.about-team-avatar.has-photo img.about-team-photo-fit { object-fit: contain; object-position: center; }
 .about-team-grid h3 { margin: 0 0 8px; font-size: 19px; }
 .about-team-grid article > span { display: inline-block; padding: 2px 9px; color: var(--brand); background: #e8fcf0; border: 1px solid #caefd9; border-radius: 5px; font-size: 12px; }
 .about-team-grid p { color: var(--muted); font-size: 14px; }

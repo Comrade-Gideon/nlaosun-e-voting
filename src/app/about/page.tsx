@@ -13,43 +13,30 @@ import {
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 
-const team = [
+const team: { name: string; role: string; duty: string | null; image: string | null; Icon: typeof Scale }[] = [
   {
-    name: "Gideon Oluwatomiwa AYODELE",
+    name: "Mr I. O.Mudashiru",
     role: "Chairman, NLA (Osun State Chapter) 2026 Election Committee",
     duty: "Provides electoral leadership and safeguards a fair, credible, and transparent election.",
     image: "/gideon-oluwatomiwa-ayodele.png",
     Icon: Scale,
   },
   {
-    name: "Ayooluwa Gideon OLOYEDE",
+    name: "Dr Yemisi Ojokuku",
     role: "General Secretary, NLA (Osun State Chapter) 2026 Election Committee",
     duty: "Serves the General Secretary of NLA (Osun State Chapter) 2026 Election Committee.",
-    image: "/ayooluwa-gideon-oloyede-clean.png",
+    image: "/ayooluwa-gideon-oloyede.png",
     Icon: ClipboardCheck,
   },
   {
-    name: "Emmanuel Oluwaseyi OLULOWO",
-    role: "PRO, NLA (Osun State Chapter) 2026 Election Committee",
+    name: "Abiodun Olusipe",
+    role: "Member, NLA (Osun State Chapter) 2026 Election Committee",
     duty: "Coordinates official publicity and voter communication for the Election Committee.",
-    image: null,
+    image: "/Clean-Cut Portrait in White Shirt.png",
     Icon: Megaphone,
   },
-  {
-    name: "Solomon Ayomide OLARINRE",
-    role: "Member, NLA (Osun State Chapter) 2026 Election Committee",
-    duty: null,
-    image: "/olarine_solomon.png",
-    Icon: BadgeCheck,
-  },
-  {
-    name: "Rhoda",
-    role: "Member, NLA (Osun State Chapter) 2026 Election Committee",
-    duty: null,
-    image: null,
-    Icon: ShieldCheck,
-  },
-] as const;
+
+];
 
 export default function About() {
   return (
@@ -96,6 +83,7 @@ export default function About() {
                 {image ? (
                   <Image
                     src={image}
+                    className={name === "Dr Yemisi Ojokuku" ? "about-team-photo-fit" : undefined}
                     width={180}
                     height={180}
                     alt={`${name}, ${role}`}

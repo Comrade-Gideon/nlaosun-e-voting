@@ -11,8 +11,8 @@ import { currentNomination, isEditable } from "@/lib/nominations";
 
 const dataFile = z.string().max(6_000_000).nullable().optional();
 const guarantor = z.object({ name: z.string().trim().min(3).max(120), email: z.string().trim().email().max(160) });
-const draftSchema = z.object({ phone: z.string().trim().max(30).optional(), currentPosition: z.string().trim().max(160).optional(), permanentAddress: z.string().trim().max(500).optional(), pka: z.string().trim().max(100).optional(), tagline: z.string().trim().max(180).optional(), biography: z.string().trim().max(1500).optional(), manifesto: z.string().trim().max(1000).optional(), mission: z.string().trim().max(1000).optional(), vision: z.string().trim().max(1000).optional(), priorities: z.array(z.string().trim().max(240)).max(3).optional(), guarantors: z.array(z.object({ name: z.string().trim().max(120), email: z.string().trim().max(160) })).max(REQUIRED_GUARANTORS).optional(), passportData: dataFile, passportName: z.string().max(180).nullable().optional(), studentIdData: dataFile, studentIdName: z.string().max(180).nullable().optional(), identificationData: dataFile, identificationName: z.string().max(180).nullable().optional(), signatureData: dataFile, signatureName: z.string().max(180).nullable().optional(), declarationsAccepted: z.boolean().optional() });
-const finalSchema = draftSchema.extend({ phone: z.string().trim().min(7).max(30), currentPosition: z.string().trim().min(2).max(160), permanentAddress: z.string().trim().min(10).max(500), pka: z.string().trim().min(2).max(100), tagline: z.string().trim().min(2).max(180), biography: z.string().trim().min(50).max(1500), manifesto: z.string().trim().min(400).max(1000), mission: z.string().trim().min(400).max(1000), vision: z.string().trim().min(400).max(1000), priorities: z.array(z.string().trim().min(2).max(240)).length(3), guarantors: z.array(guarantor).length(REQUIRED_GUARANTORS), passportData: z.string().min(20).max(2_500_000), passportName: z.string().min(1).max(180), studentIdData: z.string().min(20).max(6_000_000), studentIdName: z.string().min(1).max(180), identificationData: z.string().min(20).max(6_000_000), identificationName: z.string().min(1).max(180), signatureData: z.string().min(20).max(2_500_000), signatureName: z.string().min(1).max(180), declarationsAccepted: z.literal(true) });
+const draftSchema = z.object({ institution: z.string().trim().max(200).optional(), phone: z.string().trim().max(30).optional(), currentPosition: z.string().trim().max(160).optional(), permanentAddress: z.string().trim().max(500).optional(), pka: z.string().trim().max(100).optional(), tagline: z.string().trim().max(180).optional(), biography: z.string().trim().max(1500).optional(), manifesto: z.string().trim().max(1000).optional(), mission: z.string().trim().max(1000).optional(), vision: z.string().trim().max(1000).optional(), priorities: z.array(z.string().trim().max(240)).max(3).optional(), guarantors: z.array(z.object({ name: z.string().trim().max(120), email: z.string().trim().max(160) })).max(REQUIRED_GUARANTORS).optional(), passportData: dataFile, passportName: z.string().max(180).nullable().optional(), studentIdData: dataFile, studentIdName: z.string().max(180).nullable().optional(), identificationData: dataFile, identificationName: z.string().max(180).nullable().optional(), signatureData: dataFile, signatureName: z.string().max(180).nullable().optional(), declarationsAccepted: z.boolean().optional() });
+const finalSchema = draftSchema.extend({ institution: z.string().trim().min(2).max(200), phone: z.string().trim().min(7).max(30), currentPosition: z.string().trim().min(2).max(160), permanentAddress: z.string().trim().min(10).max(500), pka: z.string().trim().min(2).max(100), tagline: z.string().trim().min(2).max(180), biography: z.string().trim().min(50).max(1500), manifesto: z.string().trim().min(400).max(1000), mission: z.string().trim().min(400).max(1000), vision: z.string().trim().min(400).max(1000), priorities: z.array(z.string().trim().min(2).max(240)).length(3), guarantors: z.array(guarantor).length(REQUIRED_GUARANTORS), passportData: z.string().min(20).max(2_500_000), passportName: z.string().min(1).max(180), signatureData: z.string().min(20).max(2_500_000), signatureName: z.string().min(1).max(180), declarationsAccepted: z.literal(true) });
 // Every failure answers with JSON the form can show. A bare rethrow made Next.js
 // send an empty 500, which the form could only report as "The server did not
 // return a response". Queries already retry connection drops inside `db`.
@@ -44,6 +44,7 @@ export async function GET() {
       reviewNote: invite.status === "REJECTED" ? invite.reviewNote : "",
       draft: {
         phone: invite.phone,
+        institution: invite.institution,
         currentPosition: invite.currentPosition,
         permanentAddress: invite.permanentAddress,
         pka: invite.pka,
@@ -105,7 +106,7 @@ export async function POST(request: Request) {
       ["identification", parsed.data.identificationData],
       ["signature", parsed.data.signatureData],
     ] as const;
-    if (files.some(([field, value]) => !isExpectedNominationBlob(value, current!.id, field)))
+    if (files.some(([field, value]) => value && !isExpectedNominationBlob(value, current!.id, field)))
       return NextResponse.json({ message: "One or more uploaded file references are invalid." }, { status: 400 });
     // Only for the printable receipt. A storage misconfiguration or outage here
     // (e.g. R2_PRIVATE_BUCKET missing at runtime) used to fail the whole
@@ -121,7 +122,7 @@ export async function POST(request: Request) {
       const receipt = receiptCode();
       const { guarantors, ...scalars } = parsed.data;
       await tx.nominationInvite.update({ where: { id: invite.id }, data: { ...scalars, priorities: JSON.stringify(parsed.data.priorities), guarantorsDraft: JSON.stringify(guarantors), status: "SUBMITTED", reviewNote: "", reviewedAt: null, receipt, submittedAt: new Date() } });
-      return { receipt, candidateName: invite.candidateName, email: invite.email, lrcnCertified: invite.lrcnCertified, lrcnNumber: invite.lrcnNumber ?? "", position: invite.position.title, currentPosition: parsed.data.currentPosition, phone: parsed.data.phone, permanentAddress: parsed.data.permanentAddress, pka: parsed.data.pka, tagline: parsed.data.tagline, biography: parsed.data.biography, manifesto: parsed.data.manifesto, mission: parsed.data.mission, vision: parsed.data.vision, priorities: parsed.data.priorities, submittedAt: new Date().toISOString() };
+      return { receipt, candidateName: invite.candidateName, email: invite.email, lrcnCertified: invite.lrcnCertified, lrcnNumber: invite.lrcnNumber ?? "", position: invite.position.title, institution: parsed.data.institution, currentPosition: parsed.data.currentPosition, phone: parsed.data.phone, permanentAddress: parsed.data.permanentAddress, pka: parsed.data.pka, tagline: parsed.data.tagline, biography: parsed.data.biography, manifesto: parsed.data.manifesto, mission: parsed.data.mission, vision: parsed.data.vision, priorities: parsed.data.priorities, submittedAt: new Date().toISOString() };
     }, { maxWait: 30_000, timeout: 120_000 });
     // Outside the transaction: email delivery is slow and must never roll back a
     // submission the candidate has already been told succeeded.

@@ -2,17 +2,19 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { db, withDatabaseRetry } from "@/lib/db";
-import { hashSurname, normalizePhone } from "@/lib/security";
+import { hashVoterPassword, usernameSchema, passwordSchema } from "@/lib/voter-credentials";
+
+const publicVoter = { id: true, displayName: true, username: true, eligible: true } as const;
 
 const createSchema = z.object({
   displayName: z.string().trim().min(3).max(150),
-  phoneNumber: z.string().trim().min(7).max(30),
-  surname: z.string().trim().min(2).max(80),
+  username: usernameSchema,
+  password: passwordSchema,
   eligible: z.boolean().default(true),
 });
 const updateSchema = createSchema.partial().extend({
   id: z.string().min(1),
-  surname: z.string().trim().max(80).optional(),
+  password: passwordSchema.optional(),
 });
 const unavailable = () => NextResponse.json(
   { message: "The electorate database is temporarily unavailable. Please try again." },
@@ -22,19 +24,20 @@ const unavailable = () => NextResponse.json(
 export async function POST(request: Request) {
   if (!await isAdminAuthenticated()) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   const parsed = createSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ message: "Enter full name, phone number, and surname." }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ message: "Enter full name, username, and password." }, { status: 400 });
   try {
-    const phoneNumber = normalizePhone(parsed.data.phoneNumber);
-    if (!phoneNumber) return NextResponse.json({ message: "Enter a valid phone number." }, { status: 400 });
-    const duplicate = await withDatabaseRetry(() => db.voter.findUnique({ where: { phoneNumber } }));
-    if (duplicate) return NextResponse.json({ message: "An electorate already exists with this phone number." }, { status: 409 });
+    const username = parsed.data.username;
+    const duplicate = await withDatabaseRetry(() => db.voter.findUnique({ where: { username } }));
+    if (duplicate) return NextResponse.json({ message: "An electorate already exists with this username." }, { status: 409 });
+    const passwordHash = await hashVoterPassword(parsed.data.password);
     const voter = await withDatabaseRetry(() => db.voter.create({
       data: {
-        phoneNumber,
+        username,
         displayName: parsed.data.displayName,
-        surnameNormalizedHash: hashSurname(parsed.data.surname),
+        passwordHash,
         eligible: parsed.data.eligible,
       },
+      select: publicVoter,
     }));
     return NextResponse.json(voter, { status: 201 });
   } catch {
@@ -49,20 +52,21 @@ export async function PATCH(request: Request) {
   try {
     const existing = await withDatabaseRetry(() => db.voter.findUnique({ where: { id: parsed.data.id } }));
     if (!existing) return NextResponse.json({ message: "Electorate not found." }, { status: 404 });
-    const phoneNumber = parsed.data.phoneNumber ? normalizePhone(parsed.data.phoneNumber) : undefined;
-    if (phoneNumber === "") return NextResponse.json({ message: "Enter a valid phone number." }, { status: 400 });
-    if (phoneNumber) {
-      const duplicate = await withDatabaseRetry(() => db.voter.findFirst({ where: { phoneNumber, id: { not: parsed.data.id } } }));
-      if (duplicate) return NextResponse.json({ message: "Another electorate already uses this phone number." }, { status: 409 });
+    const username = parsed.data.username;
+    if (username) {
+      const duplicate = await withDatabaseRetry(() => db.voter.findFirst({ where: { username, id: { not: parsed.data.id } } }));
+      if (duplicate) return NextResponse.json({ message: "Another electorate already uses this username." }, { status: 409 });
     }
+    const passwordHash = parsed.data.password ? await hashVoterPassword(parsed.data.password) : undefined;
     const voter = await withDatabaseRetry(() => db.voter.update({
       where: { id: parsed.data.id },
       data: {
         displayName: parsed.data.displayName,
-        phoneNumber,
+        username,
         eligible: parsed.data.eligible,
-        ...(parsed.data.surname ? { surnameNormalizedHash: hashSurname(parsed.data.surname) } : {}),
+        passwordHash,
       },
+      select: publicVoter,
     }));
     return NextResponse.json(voter);
   } catch {

@@ -929,6 +929,9 @@ footer .brand b {
   grid-template-columns: 300px 1fr;
 }
 .admin-navigation {
+  align-items: stretch;
+  justify-content: flex-start;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -996,6 +999,8 @@ footer .brand b {
 .admin-navigation > a svg,
 .admin-sidebar > button svg {
   width: 20px;
+  height: 20px;
+  flex-shrink: 0;
 }
 .admin-navigation > a.active {
   background: var(--brand);

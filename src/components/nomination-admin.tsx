@@ -66,6 +66,7 @@ type ReviewGuarantor = GuarantorSummary & {
 type Review = Omit<Invitation, "guarantors"> & {
   guarantors: ReviewGuarantor[];
   phone: string;
+  institution: string;
   currentPosition: string;
   permanentAddress: string;
   pka: string;
@@ -504,6 +505,7 @@ export function NominationAdmin({
               )}
               <dl>
                 <ReviewItem label="Phone" value={review.phone} />
+                <ReviewItem label="Institution" value={review.institution || "—"} />
                 <ReviewItem label="Current Position at Place of Work" value={review.currentPosition || "—"} />
                 <ReviewItem label="LRCN Certified" value={review.lrcnNumber ? `Yes — ${review.lrcnNumber}` : "No"} />
                 <ReviewItem label="Permanent Home Address" value={review.permanentAddress} />

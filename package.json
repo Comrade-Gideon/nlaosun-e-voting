@@ -12,6 +12,7 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
+    "db:import-voters": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx scripts/import-voters.ts",
     "db:migrate-region": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --import tsx scripts/migrate-region.ts",
     "r2:cors": "node --env-file=.env.local --import tsx scripts/r2-cors.ts",
     "cf:build": "opennextjs-cloudflare build",

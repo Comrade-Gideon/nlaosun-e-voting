@@ -1,6 +1,18 @@
-function normalizeOrigin(value: string) {
-  const withProtocol = /^https?:\/\//i.test(value) ? value : `https://${value}`;
-  return withProtocol.replace(/\/+$/, "");
+function parseOrigin(value: string) {
+  let configured = value.trim();
+  // Dashboard variables sometimes include the quotes used in .env files.
+  if ((configured.startsWith('"') && configured.endsWith('"')) ||
+      (configured.startsWith("'") && configured.endsWith("'"))) {
+    configured = configured.slice(1, -1).trim();
+  }
+  if (!configured || /[\s"'\\]/.test(configured)) return undefined;
+  if (/^https?(?::|\/)/i.test(configured) && !/^https?:\/\//i.test(configured)) return undefined;
+  if (configured.includes("://") && !/^https?:\/\//i.test(configured)) return undefined;
+  try {
+    const url = new URL(/^https?:\/\//i.test(configured) ? configured : `https://${configured}`);
+    if (!url.hostname || ["http", "https"].includes(url.hostname) || url.username || url.password) return undefined;
+    return new URL(url.origin);
+  } catch { return undefined; }
 }
 
 export function getConfiguredSiteUrl() {
@@ -8,7 +20,7 @@ export function getConfiguredSiteUrl() {
     process.env.NEXT_PUBLIC_SITE_URL ||
     process.env.VERCEL_PROJECT_PRODUCTION_URL ||
     process.env.VERCEL_URL;
-  return configured ? new URL(normalizeOrigin(configured)) : undefined;
+  return configured ? parseOrigin(configured) : undefined;
 }
 
 export function getPublicOrigin(request: Request) {

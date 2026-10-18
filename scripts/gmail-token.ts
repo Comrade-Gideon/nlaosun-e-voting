@@ -13,10 +13,12 @@
  * Only gmail.send is requested — permission to send, not to read the mailbox.
  */
 import { createServer } from "node:http";
+import { randomBytes } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 
 const PORT = 53682;
-const REDIRECT_URI = "https://vote.nlaosun.workers.dev/callback";
+const REDIRECT_URI = `http://localhost:${PORT}/callback`;
+const state = randomBytes(32).toString("hex");
 const SCOPE = "https://www.googleapis.com/auth/gmail.send";
 
 const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -34,6 +36,7 @@ const consentUrl =
     redirect_uri: REDIRECT_URI,
     response_type: "code",
     scope: SCOPE,
+    state,
     // offline + consent together are what make Google return a refresh token;
     // without them you get only a one-hour access token.
     access_type: "offline",
@@ -41,7 +44,9 @@ const consentUrl =
   });
 
 console.log(`Register ${REDIRECT_URI} under Authorized redirect URIs for this OAuth client.`);
-console.log("If the OAuth app is in Testing, add the sender Gmail address under Google Auth Platform > Audience > Test users.");
+console.log("For production, publish the OAuth app under Google Auth Platform > Audience before authorizing the sender account.");
+console.log("Publishing does not replace the old token: authorize again and update the Worker secret below.");
+console.log("If you keep the app in Testing, add the sender as a test user; Gmail refresh tokens issued in Testing expire after 7 days.");
 console.log("\n1. Open this URL in a browser and approve access:\n");
 console.log(consentUrl);
 console.log(`\n2. Waiting for the redirect on ${REDIRECT_URI} …\n`);
@@ -50,6 +55,11 @@ const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? "/", `http://localhost:${PORT}`);
   if (url.pathname !== "/callback") {
     response.writeHead(404).end("Not found");
+    return;
+  }
+
+  if (url.searchParams.get("state") !== state) {
+    response.writeHead(400, { "content-type": "text/plain" }).end("Invalid OAuth state. Restart authorization from the terminal link.");
     return;
   }
 
