@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { CalendarClock } from "lucide-react";
+import { CalendarClock, ShieldCheck, Vote } from "lucide-react";
+import { PublicPageShell } from "@/components/public-page-shell";
 import { Logo } from "@/components/logo";
 import { LoginForm } from "@/components/login-form";
 import { formatWat, getPublishedElectionSummary, votingClosedNotice } from "@/lib/elections";
@@ -13,7 +14,11 @@ export default async function LoginPage() {
   const election = await getPublishedElectionSummary().catch(() => undefined);
   const closed = election === undefined ? null : votingClosedNotice(election);
 
-  return <main className="auth-page"><Logo />
+  return <PublicPageShell className="public-pages public-login"><main className="auth-page">
+    <aside className="login-identity">
+      <Logo />
+      <div className="login-seal" aria-hidden="true"><ShieldCheck /><Vote /></div>
+    </aside>
     {closed
       ? <section className="login-form voting-closed" role="status">
           <CalendarClock size={40} aria-hidden />
@@ -29,5 +34,5 @@ export default async function LoginPage() {
         </section>
       : <LoginForm />}
     <p>Nigerian Library Association, Osun State Chapter<br />© 2026 Election Committee.</p>
-  </main>;
+  </main></PublicPageShell>;
 }

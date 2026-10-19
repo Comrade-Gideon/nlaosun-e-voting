@@ -1,3 +1,5 @@
+import { PublicPageShell } from "@/components/public-page-shell";
+import "@/app/results.css";
 import Link from "next/link";
 import { Check, ClipboardList, RefreshCw, ShieldCheck } from "lucide-react";
 import { PublicResultsDashboard } from "@/components/public-results-dashboard";
@@ -22,7 +24,7 @@ export default async function ResultsPage(){
 
   if(!election?.resultsPublishedAt){
     const electionClosed = Boolean(election && election.closesAt <= new Date());
-    return <><SiteHeader/><main className="page results-pending-page">
+    return <PublicPageShell className="public-pages public-results"><SiteHeader/><main className="page results-pending-page">
       <header><span><i/>Results Pending</span><div className="pending-results-icon"><ClipboardList/></div><h1>Election Results Not Yet Published</h1><p>The NLA Osun Election Committee has not yet officially published the results of this election.<br/>Please check back later for the official results.</p></header>
       <section className="pending-election-info"><h2>Election Information</h2><dl><div><dt>Election</dt><dd>{election?.title??"NLA (Osun State Chapter) Election"}</dd></div><div><dt>Status</dt><dd><i/>{!election?"No election published yet":electionClosed?"Voting closed — results pending":election.opensAt>new Date()?"Voting not yet open":"Voting in progress"}</dd></div><div><dt>Election Period</dt><dd>{election?`${formatWat(election.opensAt)} — ${formatWat(election.closesAt)}`:"Not available"}</dd></div><div><dt>Number of Positions</dt><dd>{election?.positions.length??0} Contested Offices</dd></div><div><dt>Results Publication</dt><dd>Not Yet Published</dd></div></dl></section>
       <nav className="pending-result-actions"><Link className="button" href="/">Return Home</Link><Link href="/election">View Election</Link><Link href="/candidates">View Candidates</Link></nav>
@@ -30,7 +32,7 @@ export default async function ResultsPage(){
       <section className="result-publication-steps"><div className={electionClosed?"complete":"current"}><b>{electionClosed?<Check/>:"1"}</b><strong>Election</strong><small>{electionClosed?"Voting completed":"Voting in progress"}</small></div><i/><div className={electionClosed?"current":"pending"}><b>2</b><strong>Verification</strong><small>Electoral Committee verification</small></div><i/><div className="pending"><b>3</b><strong>Publication</strong><small>Results will be published here</small></div></section>
       <section className="check-results-update"><h2>Waiting for publication?</h2><p>Results will appear here once they have been officially released.</p><a href="/results"><RefreshCw/>Check for Updates</a></section>
       <div className="results-matter"><strong>Your vote matters.</strong><p>For transparency and fairness, results are published only after the Electoral Commission completes the required verification process.</p></div>
-    </main><SiteFooter/></>;
+    </main><SiteFooter/></PublicPageShell>;
   }
 
   const ballots = election._count.ballots;
@@ -42,5 +44,5 @@ export default async function ResultsPage(){
   const totalValidSelections = positions.reduce((sum,position)=>sum+position.validVotes,0);
   const totalVoidSelections = positions.reduce((sum,position)=>sum+position.voidVotes,0);
   const turnout = registered?Number((ballots/registered*100).toFixed(1)):0;
-  return <><SiteHeader/><PublicResultsDashboard title={election.title} description="View the official results of the NLA (Osun State Chapter) election." registered={registered} ballots={ballots} totalValidSelections={totalValidSelections} totalVoidSelections={totalVoidSelections} turnout={turnout} publishedAt={formatWat(election.resultsPublishedAt)} opensAt={formatWat(election.opensAt)} closesAt={formatWat(election.closesAt)} positions={positions}/><SiteFooter/></>;
+  return <PublicPageShell className="public-pages public-results"><SiteHeader/><PublicResultsDashboard title={election.title} description="View the official results of the NLA (Osun State Chapter) election." registered={registered} ballots={ballots} totalValidSelections={totalValidSelections} totalVoidSelections={totalVoidSelections} turnout={turnout} publishedAt={formatWat(election.resultsPublishedAt)} opensAt={formatWat(election.opensAt)} closesAt={formatWat(election.closesAt)} positions={positions}/><SiteFooter/></PublicPageShell>;
 }

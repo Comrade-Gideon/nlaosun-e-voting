@@ -1,3 +1,5 @@
+import { PublicPageShell } from "@/components/public-page-shell";
+import "@/app/announcements.css";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, ChevronRight, Megaphone, Newspaper } from "lucide-react";
@@ -24,7 +26,7 @@ export default async function AnnouncementPage({ params }: { params: Promise<{ i
   const { lead, remainder } = splitMarkdownLead(post.body);
   const published = post.publishedAt?.toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric", timeZone: "Africa/Lagos" }) ?? "Recently published";
 
-  return <>
+  return <PublicPageShell className="public-pages public-article">
     <SiteHeader />
     <main className="page article-page">
       <nav className="article-breadcrumb" aria-label="Breadcrumb"><Link href="/">Home</Link><ChevronRight /><Link href="/announcements">Announcements</Link><ChevronRight /><span>{post.title}</span></nav>
@@ -43,5 +45,5 @@ export default async function AnnouncementPage({ params }: { params: Promise<{ i
       <section className="article-cta"><div><h2>Get ready to make your voice heard</h2><p>Verify your identity early and be ready when voting opens.</p></div><Link href="/login">Login / Vote <ArrowRight /></Link></section>
     </main>
     <SiteFooter />
-  </>;
+  </PublicPageShell>;
 }

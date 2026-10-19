@@ -1,0 +1,211 @@
+/* The public election report: chapter green, gold rules and readable figures. */
+.public-results { --results-gutter: max(24px, calc((100vw - 1240px) / 2)); }
+.public-results .results-public-page { background: #fff; }
+.public-results .official-results-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 210px;
+  align-items: center;
+  gap: 60px;
+  padding-block: 65px 74px;
+  margin-bottom: 0;
+}
+.public-results .results-heading-copy { min-width: 0; }
+.public-results .results-heading-copy > span { display: inline-flex; align-items: center; gap: 9px; border: 1px solid #ffffff44; border-left: 2px solid var(--gold); padding: 7px 11px; color: #e9f6ee; background: #ffffff08; font-size: 9px; font-weight: 650; text-transform: uppercase; letter-spacing: .16em; }
+.public-results .results-heading-copy > span i { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); }
+.public-results .official-results-heading h1 { font-size: clamp(43px, 5vw, 72px); margin-block: 26px 22px; }
+.public-results .results-heading-copy > small { display: block; padding-top: 20px; margin-top: 25px; border-top: 1px solid #ffffff33; font-size: 10px; color: #cdebd9; letter-spacing: .025em; }
+.public-results .results-seal { display: grid; place-items: center; width: 174px; aspect-ratio: 1; border: 1px solid #ffffff55; border-radius: 50%; box-shadow: 0 0 0 18px #ffffff06, 0 0 0 19px #ffffff22; justify-self: center; }
+.public-results .results-seal svg { width: 78px; height: 78px; color: var(--gold); stroke-width: 1; }
+
+/* A single statistics strip instead of four nested cards. */
+.public-results .public-results-stats { position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; padding: 0; border: 1px solid var(--brand-line); border-top: 3px solid var(--gold); border-radius: 3px; background: #fff; margin: -20px 0 0; box-shadow: 0 8px 24px #0a542908; }
+.public-results .public-results-stats article { display: grid; grid-template-columns: minmax(0, 1fr) 24px; gap: 0; min-height: 195px; padding: 28px 24px; border: 0; border-right: 1px solid var(--line); border-radius: 0; background: none; box-shadow: none; }
+.public-results .public-results-stats article:last-child { border-right: 0; }
+.public-results .public-results-stats article > svg { grid-column: 2; grid-row: 1; width: 21px; height: 21px; padding: 0; margin: 5px 0 0; background: none; border-radius: 0; color: var(--brand); stroke-width: 1.4; }
+.public-results .public-results-stats article > b { grid-column: 1; grid-row: 1; color: var(--brand-dark); font-family: var(--landing-serif), Georgia, serif; font-size: 59px; font-weight: 450; line-height: 1; letter-spacing: -.05em; font-variant-numeric: tabular-nums; }
+.public-results .public-results-stats article > span { grid-column: 1 / -1; color: var(--brand-dark); font-size: 9px; font-weight: 700; letter-spacing: .1em; margin-top: 15px; }
+.public-results .public-results-stats article > small { grid-column: 1 / -1; max-width: 190px; color: var(--public-muted); font-size: 11px; line-height: 1.7; margin-top: 8px; }
+
+/* Accessible CSS turnout ring, with the underlying counts beside it. */
+.public-results .turnout-card { display: grid; grid-template-columns: minmax(0, 1fr) 190px minmax(0, 1fr); align-items: center; gap: 48px; margin: 0 0 64px; padding: 48px 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; box-shadow: none; background: #fff; }
+.public-results .turnout-card .turnout-heading { display: block; }
+.public-results .turnout-card .turnout-heading h2 { color: var(--brand-dark); font-family: var(--landing-serif), Georgia, serif; font-size: 42px; font-weight: 450; letter-spacing: -.035em; line-height: 1.08; margin: 0 0 16px; }
+.public-results .turnout-heading p { color: var(--public-muted); font-size: 13px; line-height: 1.8; max-width: 250px; margin: 0; }
+.public-results .turnout-visual { position: relative; isolation: isolate; display: grid; place-items: center; width: 190px; aspect-ratio: 1; border-radius: 50%; background: conic-gradient(var(--brand) 0 var(--turnout), #e9f0e9 var(--turnout) 100%); }
+.public-results .turnout-visual::before { content: ""; position: absolute; z-index: -1; inset: 12px; background: #fff; border: 1px solid #e9f0e9; border-radius: 50%; }
+.public-results .turnout-card .turnout-visual > strong { font-family: var(--landing-serif), Georgia, serif; font-size: 49px; line-height: 1; color: var(--brand-dark); font-weight: 450; letter-spacing: -.05em; font-variant-numeric: tabular-nums; }
+.public-results .turnout-card dl { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 30px; margin: 0; }
+.public-results .turnout-card dl > div { border-bottom: 1px solid var(--line); padding-bottom: 13px; }
+.public-results .turnout-card dt { font-size: 8px; font-weight: 600; color: var(--public-muted); letter-spacing: .1em; }
+.public-results .turnout-card dd { color: var(--brand-dark); font-size: 23px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.public-results .results-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); align-items: end; gap: 40px; margin-bottom: 30px; }
+.public-results .results-toolbar h2 { font-family: var(--landing-serif), Georgia, serif; font-size: 43px; font-weight: 450; line-height: 1.08; letter-spacing: -.035em; color: var(--brand-dark); margin: 0 0 12px; }
+.public-results .results-toolbar p { font-size: 13px; line-height: 1.7; color: var(--public-muted); margin: 0; }
+.public-results .public-results-filters { display: grid; grid-template-columns: minmax(0, 1fr) 170px; gap: 12px; margin: 0; }
+.public-results .public-results-filters label { min-width: 0; background: #fafcf9; border: 1px solid #d6dfd7; border-radius: 2px; padding: 0 12px; }
+.public-results .public-results-filters svg { flex-shrink: 0; color: var(--brand); }
+.public-results .public-results-filters input { min-width: 0; font-size: 11px; padding: 15px 8px; background: transparent; }
+.public-results .public-results-filters select { min-width: 0; border-radius: 2px; border-color: #d6dfd7; background: #fafcf9; color: var(--brand-dark); font-size: 11px; padding: 14px 10px; }
+.public-results .public-results-filters select:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+/* Each office is an individually numbered result ledger. */
+.public-results .official-position-results { display: grid; gap: 30px; }
+.public-results .official-position-card { margin: 0; border: 1px solid #d6dfd7; border-top: 3px solid var(--brand); border-radius: 3px; box-shadow: none; background: #fff; }
+.public-results .official-position-card > header { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 22px; padding: 26px 30px; border-bottom: 1px solid var(--line); background: #f6faf6; }
+.public-results .position-result-number { color: #98bba0; font-family: var(--landing-serif), Georgia, serif; font-size: 42px; font-weight: 450; line-height: 1; }
+.public-results .official-position-card > header h3 { font-family: var(--landing-serif), Georgia, serif; color: var(--brand-dark); font-size: 32px; font-weight: 450; text-transform: none; letter-spacing: -.025em; line-height: 1.1; margin-bottom: 8px; }
+.public-results .official-position-card > header small { color: var(--public-muted); font-size: 9px; }
+.public-results .official-position-card > header dl { gap: 28px; text-align: right; }
+.public-results .official-position-card > header dt { color: var(--public-muted); font-size: 8px; font-weight: 600; letter-spacing: .08em; }
+.public-results .official-position-card > header dd { color: var(--brand-dark); font-size: 22px; font-weight: 600; margin-top: 7px; font-variant-numeric: tabular-nums; }
+.public-results .result-winner { display: grid; grid-template-columns: 66px minmax(0, 1fr) auto auto; align-items: center; gap: 20px; margin: 26px 30px 8px; padding: 20px; border: 1px solid #d8e5cf; border-left: 3px solid var(--gold); border-radius: 2px; background: #f1f8eb; }
+.public-results .result-winner .candidate-photo { width: 66px; height: 66px; grid-column: 1; display: grid; padding: 0; border-radius: 3px; background: var(--brand-tint); color: var(--brand); text-transform: none; letter-spacing: normal; }
+.public-results .result-winner > div > b { color: var(--brand-dark); font-family: var(--landing-serif), Georgia, serif; font-size: 24px; font-weight: 450; line-height: 1.2; }
+.public-results .result-winner > div small { margin-top: 8px; color: var(--public-muted); font-size: 10px; }
+.public-results .result-winner > .winner-badge { display: inline-flex; align-items: center; gap: 5px; color: var(--brand-dark); background: var(--gold); padding: 6px 9px; border-radius: 2px; font-size: 8px; letter-spacing: .05em; }
+.public-results .result-winner > .winner-badge svg { width: 12px; height: 12px; }
+.public-results .result-winner > strong { color: var(--brand-dark); font-size: 20px; font-weight: 650; }
+.public-results .result-winner > strong small { color: var(--public-muted); font-size: 9px; margin-top: 5px; }
+.public-results .official-candidate-list { padding: 8px 30px; }
+.public-results .official-candidate-row { grid-template-columns: 30px 58px minmax(0, 1fr) 115px; gap: 22px; padding: 25px 0; border-color: var(--line); }
+.public-results .official-candidate-row > span { font-size: 10px; font-weight: 500; color: #728478; }
+.public-results .official-candidate-row > .candidate-photo { width: 58px; height: 58px; border-radius: 3px; background: var(--brand-tint); color: var(--brand); }
+.public-results .official-candidate-row > div > b { font-size: 15px; font-weight: 650; color: #294735; }
+.public-results .official-candidate-row > div > small { font-size: 10px; color: var(--public-muted); margin-top: 7px; }
+.public-results .official-candidate-row > div > i { height: 5px; margin-top: 15px; background: #edf1eb; border-radius: 1px; }
+.public-results .official-candidate-row > div > i span { border-radius: 1px; background: linear-gradient(90deg, var(--brand), var(--brand-accent)); }
+.public-results .official-candidate-row > strong { display: grid; grid-template-columns: 1fr; gap: 6px; color: var(--brand-dark); font-size: 19px; font-weight: 600; }
+.public-results .official-candidate-row > strong small { font-size: 10px; color: var(--public-muted); }
+.public-results .official-position-card > footer { display: flex; flex-direction: row; justify-content: space-between; gap: 15px; padding: 17px 30px; border-top: 1px solid var(--line); background: #fafcf9; text-align: left; color: var(--public-muted); font-size: 10px; }
+.public-results .official-position-card > footer > small { font-size: 10px; }
+.public-results .official-position-card > footer svg { color: var(--brand); flex-shrink: 0; }
+.public-results .position-no-candidates { display: flex; align-items: center; gap: 10px; color: var(--public-muted); font-size: 12px; line-height: 1.8; margin: 0; padding: 25px 0; }
+.public-results .position-no-candidates svg { width: 18px; height: 18px; color: #9aad9f; flex-shrink: 0; }
+.public-results .load-results { display: inline-flex; align-items: center; justify-content: center; gap: 14px; justify-self: center; margin: 5px 0 0; padding: 14px 25px; border: 1px solid var(--brand-line); border-radius: 2px; font-family: inherit; font-size: 12px; font-weight: 650; color: var(--brand); background: #fff; transition: background .2s; }
+.public-results .load-results:hover { background: var(--brand-tint); }
+.public-results .load-results svg { width: 15px; height: 15px; }
+.public-results .results-empty { padding: 50px 24px; border: 1px solid var(--brand-line); border-radius: 3px; background: #f5faf6; }
+.public-results .results-empty h3 { font-family: var(--landing-serif), Georgia, serif; color: var(--brand-dark); font-size: 32px; font-weight: 450; margin: 18px 0 10px; }
+.public-results .results-empty p { font-size: 13px; }
+
+/* A dark colophon collects the complete election totals and schedule. */
+.public-results .public-results-overview { position: relative; isolation: isolate; overflow: hidden; padding: 38px; margin: 64px 0 36px; border: 1px solid var(--brand-dark); border-top: 3px solid var(--gold); border-radius: 3px; background: var(--public-gradient); color: #fff; text-align: left; }
+.public-results .public-results-overview h2 { font-family: var(--landing-serif), Georgia, serif; font-size: 39px; font-weight: 450; margin-bottom: 30px; color: #fff; }
+.public-results .public-results-overview > div { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+.public-results .public-results-overview span { display: flex; flex-direction: column; gap: 15px; padding: 0 0 20px; border: 0; border-bottom: 1px solid #ffffff33; border-radius: 0; background: none; color: #cdebd9; font-size: 9px; letter-spacing: .08em; }
+.public-results .public-results-overview span strong { color: #fff; font-family: var(--landing-serif), Georgia, serif; font-size: 38px; font-weight: 450; line-height: 1; }
+.public-results .public-results-overview > p { color: #e9f6ee; font-size: 11px; line-height: 2; margin-top: 26px; }
+.public-results .about-public-results { gap: 22px; align-items: start; border-top: 1px solid var(--brand-line); padding-top: 30px; margin-top: 0; }
+.public-results .about-public-results > svg { width: 38px; height: 38px; padding: 8px; border-radius: 50%; color: var(--brand); background: var(--brand-tint); flex-shrink: 0; }
+.public-results .about-public-results h2 { color: var(--brand-dark); font-size: 31px; }
+.public-results .about-public-results p { color: var(--public-muted); font-size: 13px; line-height: 1.85; max-width: 850px; }
+.public-results .about-public-results small { color: var(--brand); font-size: 10px; font-weight: 600; line-height: 1.8; }
+
+/* Pending publication gets the same report treatment without revealing results. */
+.public-results .results-pending-page { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr); grid-template-rows: auto min-content auto auto auto auto; column-gap: 38px; }
+.public-results .results-pending-page > header { grid-column: 1 / -1; }
+.public-results .pending-election-info { grid-column: 1; grid-row: span 2; margin: 0; padding: 30px; border: 1px solid var(--brand-line); border-top: 3px solid var(--gold); }
+.public-results .pending-election-info dl > div { grid-template-columns: 1fr; gap: 9px; padding-block: 19px; }
+.public-results .pending-election-info dt { font-size: 9px; color: var(--public-muted); }
+.public-results .pending-election-info dd { justify-content: flex-start; text-align: left; color: var(--brand-dark); font-size: 14px; font-weight: 600; }
+.public-results .pending-result-actions { grid-column: 2; display: grid; grid-template-columns: 1fr; align-self: start; margin: 0; gap: 12px; }
+.public-results .pending-result-actions a { justify-content: center; text-align: center; padding: 14px; }
+.public-results .pending-result-actions a:last-child { padding: 12px; border: 1px solid var(--line); }
+.public-results .pending-official-notice { grid-column: 2; align-self: start; margin-top: 22px; gap: 14px; padding: 24px; }
+.public-results .result-publication-steps { grid-column: 1 / -1; width: min(100%, 720px); margin-block: 48px; }
+.public-results .check-results-update, .public-results .results-matter { grid-column: 1 / -1; }
+.public-results .results-matter { margin-top: 30px; }
+.public-results .result-publication-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: none; width: 100%; gap: 30px; padding: 30px 0; border-block: 1px solid var(--line); }
+.public-results .result-publication-steps > i { display: none; }
+.public-results .result-publication-steps > div { display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 6px 14px; align-items: start; text-align: left; }
+.public-results .result-publication-steps > div b { grid-column: 1; grid-row: 1 / 3; width: 36px; height: 36px; border-width: 1px; border-radius: 3px; font-size: 13px; }
+.public-results .result-publication-steps > div strong { grid-column: 2; font-family: var(--landing-serif), Georgia, serif; font-size: 24px; font-weight: 450; line-height: 1.1; color: var(--brand-dark); }
+.public-results .result-publication-steps > div small { grid-column: 2; max-width: none; font-size: 10px; line-height: 1.7; color: var(--public-muted); }
+.public-results .check-results-update { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 30px; text-align: left; border-left: 3px solid var(--gold); }
+.public-results .check-results-update h2 { grid-column: 1; }
+.public-results .check-results-update p { grid-column: 1; margin: 0; }
+.public-results .check-results-update a { grid-column: 2; grid-row: 1 / 3; align-self: center; color: var(--brand-dark); border-color: var(--brand-line); padding: 14px 18px; }
+@media (prefers-reduced-motion: no-preference) {
+  .public-results .public-results-stats { animation: public-arrive .7s .12s both; }
+  .public-results .turnout-card { animation: public-arrive .7s .2s both; }
+}
+@media (max-width: 1050px) {
+  .public-results .official-results-heading { grid-template-columns: minmax(0, 1fr) 150px; gap: 40px; }
+  .public-results .results-seal { width: 130px; }
+  .public-results .results-seal svg { width: 60px; height: 60px; }
+  .public-results .public-results-stats article { padding: 24px 18px; }
+  .public-results .public-results-stats article > b { font-size: 50px; }
+  .public-results .turnout-card { grid-template-columns: minmax(0, 1fr) 160px minmax(0, 1fr); gap: 30px; }
+  .public-results .turnout-visual { width: 160px; }
+  .public-results .results-toolbar { grid-template-columns: 1fr; gap: 24px; }
+  .public-results .public-results-filters { grid-template-columns: minmax(0, 1fr) 240px; }
+  .public-results .official-position-card > header { padding: 24px; gap: 18px; }
+  .public-results .official-position-card > header h3 { font-size: 29px; }
+  .public-results .official-position-card > header dl { gap: 18px; }
+  .public-results .result-winner { grid-template-columns: 58px minmax(0, 1fr) auto; gap: 14px; margin-inline: 24px; }
+  .public-results .result-winner > .winner-badge { grid-column: 2; justify-self: start; }
+  .public-results .result-winner > strong { grid-column: 3; grid-row: 1 / 3; }
+  .public-results .result-winner .candidate-photo { width: 58px; height: 58px; grid-row: 1 / 3; }
+}
+@media (max-width: 700px) {
+  .public-results .official-results-heading { grid-template-columns: 1fr; gap: 0; padding-block: 42px 58px; }
+  .public-results .results-seal { display: none; }
+  .public-results .official-results-heading h1 { font-size: 45px; }
+  .public-results .public-results-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .public-results .public-results-stats article { min-height: 180px; padding: 22px 18px; }
+  .public-results .public-results-stats article:nth-child(2) { border-right: 0; }
+  .public-results .public-results-stats article:nth-child(-n + 2) { border-bottom: 1px solid var(--line); }
+  .public-results .public-results-stats article > b { font-size: clamp(32px, 8vw, 44px); }
+  .public-results .public-results-stats article > span { font-size: 8px; }
+  .public-results .public-results-stats article > small { font-size: 10px; }
+  .public-results .turnout-card { grid-template-columns: minmax(0, 1fr) 140px; gap: 28px 18px; padding-block: 36px; margin-bottom: 42px; }
+  .public-results .turnout-card .turnout-heading h2 { font-size: 33px; }
+  .public-results .turnout-heading p { font-size: 11px; }
+  .public-results .turnout-visual { width: 140px; }
+  .public-results .turnout-card .turnout-visual > strong { font-size: 38px; }
+  .public-results .turnout-card dl { grid-column: 1 / -1; gap: 18px 28px; }
+  .public-results .turnout-card dt { font-size: 8px; }
+  .public-results .turnout-card dd { font-size: 22px; }
+  .public-results .results-toolbar h2 { font-size: 38px; }
+  .public-results .results-toolbar p { font-size: 12px; }
+  .public-results .public-results-filters { grid-template-columns: 1fr; gap: 10px; }
+  .public-results .official-position-results { gap: 24px; }
+  .public-results .official-position-card > header { grid-template-columns: 34px minmax(0, 1fr); gap: 14px; padding: 24px 20px; }
+  .public-results .position-result-number { font-size: 34px; }
+  .public-results .official-position-card > header h3 { font-size: 29px; }
+  .public-results .official-position-card > header dl { grid-column: 1 / -1; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; width: 100%; border-top: 1px solid var(--brand-line); padding-top: 18px; margin-top: 3px; text-align: left; }
+  .public-results .official-position-card > header dt { font-size: 7px; }
+  .public-results .official-position-card > header dd { font-size: 22px; }
+  .public-results .result-winner { grid-template-columns: 48px minmax(0, 1fr); gap: 10px 14px; padding: 16px; margin: 20px 16px 0; }
+  .public-results .result-winner .candidate-photo { width: 48px; height: 48px; grid-row: 1 / 3; }
+  .public-results .result-winner > div > b { font-size: 22px; }
+  .public-results .result-winner > div small { font-size: 9px; white-space: normal; }
+  .public-results .result-winner > strong { grid-column: 1 / -1; grid-row: auto; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; width: 100%; border-top: 1px solid var(--brand-line); padding-top: 12px; margin-top: 4px; font-size: 18px; }
+  .public-results .result-winner > strong small { font-size: 9px; }
+  .public-results .official-candidate-list { padding-inline: 18px; }
+  .public-results .official-candidate-row { grid-template-columns: 20px 42px minmax(0, 1fr); gap: 12px; padding-block: 22px; }
+  .public-results .official-candidate-row > .candidate-photo { width: 42px; height: 42px; }
+  .public-results .official-candidate-row > div > b { font-size: 12px; }
+  .public-results .official-candidate-row > div > small { font-size: 9px; }
+  .public-results .official-candidate-row > strong { grid-column: 3; display: flex; justify-content: space-between; align-items: center; font-size: 16px; }
+  .public-results .official-position-card > footer { align-items: start; flex-direction: column; padding: 16px 20px; gap: 8px; font-size: 9px; }
+  .public-results .official-position-card > footer > small { font-size: 9px; }
+  .public-results .position-no-candidates { font-size: 11px; }
+  .public-results .public-results-overview { padding: 28px 24px; margin-top: 44px; }
+  .public-results .public-results-overview h2 { font-size: 34px; }
+  .public-results .public-results-overview > div { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+  .public-results .public-results-overview span { font-size: 8px; }
+  .public-results .public-results-overview span strong { font-size: 34px; }
+  .public-results .about-public-results { gap: 14px; }
+  .public-results .about-public-results h2 { font-size: 29px; }
+  .public-results .about-public-results p { font-size: 12px; }
+  .public-results .results-pending-page { grid-template-columns: 1fr; gap: 0; }
+  .public-results .pending-election-info, .public-results .pending-result-actions, .public-results .pending-official-notice { grid-column: 1; grid-row: auto; }
+  .public-results .pending-election-info { padding: 25px 20px; }
+  .public-results .pending-result-actions { margin-top: 25px; }
+  .public-results .pending-official-notice { margin-top: 25px; }
+  .public-results .result-publication-steps { margin-block: 35px; gap: 24px; grid-template-columns: 1fr; }
+  .public-results .check-results-update { grid-template-columns: 1fr; gap: 12px; }
+  .public-results .check-results-update a { grid-column: 1; grid-row: auto; justify-self: start; margin-top: 8px; }
+}

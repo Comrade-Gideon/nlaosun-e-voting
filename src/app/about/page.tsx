@@ -2,7 +2,6 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight,
-  BadgeCheck,
   ClipboardCheck,
   Megaphone,
   Quote,
@@ -10,12 +9,13 @@ import {
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
+import { PublicPageShell } from "@/components/public-page-shell";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 
 const team: { name: string; role: string; duty: string | null; image: string | null; Icon: typeof Scale }[] = [
   {
-    name: "Mr I. O.Mudashiru",
+    name: "Mr I. O. Mudashiru",
     role: "Chairman, NLA (Osun State Chapter) 2026 Election Committee",
     duty: "Provides electoral leadership and safeguards a fair, credible, and transparent election.",
     image: "/gideon-oluwatomiwa-ayodele.png",
@@ -40,7 +40,7 @@ const team: { name: string; role: string; duty: string | null; image: string | n
 
 export default function About() {
   return (
-    <>
+    <PublicPageShell className="public-pages public-about">
       <SiteHeader />
       <main className="page about-page">
         <section className="about-card">
@@ -83,9 +83,10 @@ export default function About() {
                 {image ? (
                   <Image
                     src={image}
-                    className={name === "Dr Yemisi Ojokuku" ? "about-team-photo-fit" : undefined}
-                    width={180}
-                    height={180}
+                    className={name === "Dr Yemisi Ojokuku" ? "about-team-photo-fit" : name === "Abiodun Olusipe" ? "about-team-photo-trim" : undefined}
+                    width={600}
+                    height={600}
+                    sizes="(max-width: 700px) 90vw, (max-width: 1050px) 28vw, 380px"
                     alt={`${name}, ${role}`}
                   />
                 ) : (
@@ -113,6 +114,6 @@ export default function About() {
         </section>
       </main>
       <SiteFooter />
-    </>
+    </PublicPageShell>
   );
 }

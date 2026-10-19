@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { BarChart3, CheckCircle2, CircleSlash2, Search, Users, Vote } from "lucide-react";
+import { useMemo, useState, type CSSProperties } from "react";
+import { ArrowDown, BarChart3, CheckCircle2, CircleSlash2, Search, ShieldCheck, Users, Vote } from "lucide-react";
 import { CandidatePhoto } from "@/components/candidate-photo";
 
 type CandidateResult = {
@@ -49,10 +49,13 @@ export function PublicResultsDashboard(props: Props) {
 
   return <main className="page results-public-page">
     <header className="official-results-heading">
-      <span><i />Official Results</span>
-      <h1>{props.title} Results</h1>
-      <p>{props.description}</p>
-      <small>Last updated: {props.publishedAt}</small>
+      <div className="results-heading-copy">
+        <span><i />Official Results</span>
+        <h1>{props.title} Results</h1>
+        <p>{props.description}</p>
+        <small>Last updated: {props.publishedAt}</small>
+      </div>
+      <div className="results-seal" aria-hidden="true"><ShieldCheck /></div>
     </header>
 
     <section className="public-results-stats" aria-label="Election summary">
@@ -62,10 +65,19 @@ export function PublicResultsDashboard(props: Props) {
       <article><CircleSlash2 /><b>{props.totalVoidSelections}</b><span>Total void selections</span><small>Positions submitted without a candidate selection.</small></article>
     </section>
 
-    <section className="turnout-card">
-      <div><h2>Voter Turnout</h2><strong>{props.turnout}%</strong></div>
-      <i><span style={{ width: `${Math.min(100, props.turnout)}%` }} /></i>
-      <p>{props.ballots} of {props.registered} registered voters voted.</p>
+    <section className="turnout-card" aria-label="Voter turnout">
+      <div className="turnout-heading">
+        <h2>Voter Turnout</h2>
+        <p>{props.ballots} of {props.registered} registered voters voted.</p>
+      </div>
+      <div
+        className="turnout-visual"
+        role="img"
+        aria-label={`Voter turnout: ${props.turnout}%`}
+        style={{ "--turnout": `${Math.min(100, Math.max(0, props.turnout))}%` } as CSSProperties}
+      >
+        <strong aria-hidden="true">{props.turnout}%</strong>
+      </div>
       <dl>
         <div><dt>Registered voters</dt><dd>{props.registered}</dd></div>
         <div><dt>Votes cast</dt><dd>{props.ballots}</dd></div>
@@ -74,23 +86,26 @@ export function PublicResultsDashboard(props: Props) {
       </dl>
     </section>
 
-    <div className="public-results-filters">
-      <label><Search /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search candidate or position..." /></label>
-      <select value={position} onChange={event => setPosition(event.target.value)} aria-label="Filter by position">
-        <option value="">All Positions</option>
-        {props.positions.map(item => <option value={item.id} key={item.id}>{item.title}</option>)}
-      </select>
+    <div className="results-toolbar">
+      <div><h2>Election Results</h2><p>Official results by contested position.</p></div>
+      <div className="public-results-filters">
+        <label><Search /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search candidate or position..." aria-label="Search candidate or position" /></label>
+        <select value={position} onChange={event => setPosition(event.target.value)} aria-label="Filter by position">
+          <option value="">All Positions</option>
+          {props.positions.map(item => <option value={item.id} key={item.id}>{item.title}</option>)}
+        </select>
+      </div>
     </div>
 
-    <section className="official-position-results">
-      <div><h2>Election Results</h2><p>Official results by contested position.</p></div>
+    <section className="official-position-results" aria-label="Results by position">
       {visible.map(item => {
         const top = item.candidates[0];
         const uniqueWinner = Boolean(top && top.votes > 0 && (item.candidates[1]?.votes ?? -1) < top.votes);
         return <article className="official-position-card" key={item.id}>
-          <header><div><h3>{item.title}</h3><small>Position contested</small></div><dl><div><dt>Total ballots</dt><dd>{props.ballots}</dd></div><div><dt>Valid votes</dt><dd>{item.validVotes}</dd></div><div><dt>Void votes</dt><dd>{item.voidVotes}</dd></div></dl></header>
-          {uniqueWinner && top && <div className="result-winner"><CandidatePhoto name={top.name} src={top.photoUrl} /><div><b>{top.name}</b>{top.pka && <small>Politically Known As: {top.pka}</small>}</div><span>Winner</span><strong>{top.votes} votes<small>{percent(top.votes, props.ballots)}% of ballots</small></strong></div>}
+          <header><span className="position-result-number" aria-hidden="true">{String(props.positions.findIndex(position => position.id === item.id) + 1).padStart(2, "0")}</span><div><h3>{item.title}</h3><small>Position contested</small></div><dl><div><dt>Total ballots</dt><dd>{props.ballots}</dd></div><div><dt>Valid votes</dt><dd>{item.validVotes}</dd></div><div><dt>Void votes</dt><dd>{item.voidVotes}</dd></div></dl></header>
+          {uniqueWinner && top && <div className="result-winner"><CandidatePhoto name={top.name} src={top.photoUrl} /><div><b>{top.name}</b>{top.pka && <small>Politically Known As: {top.pka}</small>}</div><span className="winner-badge"><CheckCircle2 aria-hidden="true" />Winner</span><strong>{top.votes} votes<small>{percent(top.votes, props.ballots)}% of ballots</small></strong></div>}
           <div className="official-candidate-list">
+            {!item.candidates.length && <p className="position-no-candidates"><CircleSlash2 aria-hidden="true" />No candidates are listed for this position.</p>}
             {item.candidates.map((candidate, index) => {
               const share = percent(candidate.votes, props.ballots);
               return <div className="official-candidate-row" key={candidate.id}>
@@ -105,7 +120,7 @@ export function PublicResultsDashboard(props: Props) {
         </article>;
       })}
       {!visible.length && <div className="results-empty"><Search /><h3>No matching result</h3><p>Try another candidate name or position.</p></div>}
-      {!showAll && !query && !position && filtered.length > 2 && <button className="load-results" onClick={() => setShowAll(true)}>Load more positions</button>}
+      {!showAll && !query && !position && filtered.length > 2 && <button className="load-results" onClick={() => setShowAll(true)}>Load more positions<ArrowDown aria-hidden="true" /></button>}
     </section>
 
     <section className="public-results-overview">

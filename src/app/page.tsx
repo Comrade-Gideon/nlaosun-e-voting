@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { PublicPageShell } from "@/components/public-page-shell";
 import {
   ArrowRight, Award, BadgeCheck, CalendarDays, CheckCircle2, ChevronDown, Clock, Download,
   Eye, FileText, Fingerprint, Flag, Globe, IdCard, Landmark, LifeBuoy, ListChecks, LockKeyhole,
@@ -53,7 +54,7 @@ export default async function HomePage() {
   const state = election ? electionState(election.opensAt, election.closesAt) : null;
   const countdownTarget = state === "upcoming" ? election?.opensAt : state === "open" ? election?.closesAt : null;
 
-  return <>
+  return <PublicPageShell>
     <SiteHeader />
     <main className="home">
       <section className="home-hero">
@@ -77,7 +78,7 @@ export default async function HomePage() {
             src="/nla-osun-hero.png"
             alt="A member casting a verified ballot on the chapter e-voting platform"
             fill
-            sizes="(max-width: 900px) 100vw, 44vw"
+            sizes="(max-width: 900px) 90vw, 42vw"
             priority
           />
         </div>
@@ -244,5 +245,5 @@ export default async function HomePage() {
       </section>
     </main>
     <SiteFooter />
-  </>;
+  </PublicPageShell>;
 }

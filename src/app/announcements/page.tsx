@@ -1,3 +1,5 @@
+import { PublicPageShell } from "@/components/public-page-shell";
+import "@/app/announcements.css";
 import { Newspaper } from "lucide-react";
 import { AnnouncementDirectory } from "@/components/announcement-directory";
 import { SiteHeader } from "@/components/site-header";
@@ -18,7 +20,7 @@ export default async function Announcements() {
   });
   const serialised = posts.map(post => ({ ...post, publishedAt: post.publishedAt?.toISOString() ?? null }));
 
-  return <>
+  return <PublicPageShell className="public-pages public-announcements">
     <SiteHeader />
     <main className="page announcements-page">
       <section className="announcements-heading">
@@ -28,5 +30,5 @@ export default async function Announcements() {
       <AnnouncementDirectory posts={serialised} />
     </main>
     <SiteFooter />
-  </>;
+  </PublicPageShell>;
 }

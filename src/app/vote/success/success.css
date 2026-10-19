@@ -1,0 +1,3 @@
+.success .success-actions { display: flex; flex-wrap: wrap; justify-content: center; align-items: start; gap: 14px; margin-top: 24px; }
+.success .success-actions .button { min-height: 48px; }
+.success .voter-logout .error { max-width: 280px; font-size: 13px; line-height: 1.6; }

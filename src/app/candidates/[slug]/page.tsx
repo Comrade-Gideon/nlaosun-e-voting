@@ -1,3 +1,4 @@
+import { PublicPageShell } from "@/components/public-page-shell";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -32,7 +33,7 @@ export default async function CandidatePage({
   if (!candidate) notFound();
   const priorities = JSON.parse(candidate.priorities) as string[];
   return (
-    <>
+    <PublicPageShell className="public-pages public-candidate-profile">
       <SiteHeader />
       <main className="page">
         <Link href="/candidates">← Back to Candidate Directory</Link>
@@ -98,6 +99,6 @@ export default async function CandidatePage({
         </div>
       </main>
       <SiteFooter />
-    </>
+    </PublicPageShell>
   );
 }

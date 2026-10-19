@@ -43,9 +43,10 @@ export function CandidateDirectory({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search candidates by name or PKA..."
+            aria-label="Search candidates by name or PKA"
           />
         </label>
-        <select value={position} onChange={(e) => setPosition(e.target.value)}>
+        <select aria-label="Filter candidates by position" value={position} onChange={(e) => setPosition(e.target.value)}>
           <option value="">All Positions</option>
           {positions.map((p) => (
             <option value={p.slug} key={p.slug}>

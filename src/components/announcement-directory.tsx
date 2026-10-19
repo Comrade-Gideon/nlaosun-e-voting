@@ -45,7 +45,7 @@ export function AnnouncementDirectory({ posts }: { posts: Post[] }) {
 
   return <>
     <div className="announcement-filter">
-      <label><Search /><input value={query} onChange={event => updateQuery(event.target.value)} placeholder="Search announcements and articles..." /></label>
+      <label><Search /><input value={query} onChange={event => updateQuery(event.target.value)} placeholder="Search announcements and articles..." aria-label="Search announcements and articles" /></label>
       <select value={category} onChange={event => updateCategory(event.target.value)} aria-label="Filter posts by category"><option value="">All Categories</option>{categories.map(item => <option value={item} key={item}>{item}</option>)}</select>
     </div>
 
