@@ -18,7 +18,7 @@ The local seed provides a demo eligible voter:
 - Password: `DemoVoter2026!`
 
 Voters sign in with username and password and see “Welcome, Full Name” on the ballot.
-Upload electorate CSVs in the admin panel using `username,password,fullname` columns (optional: `eligible`). Usernames are case-insensitive; passwords are case-sensitive and stored as salted PBKDF2 hashes. Re-importing a username updates the same voter, preserving ballot history. Without an `eligible` column, existing eligibility is preserved.
+Upload electorate CSVs in the admin panel using `username,password,fullname` columns (optional: `eligible`). Usernames are case-insensitive; passwords are case-sensitive and stored as salted Argon2id hashes. Existing PBKDF2 voter hashes remain verifiable and are upgraded after a successful login. Re-importing a username updates the same voter, preserving ballot history. Without an `eligible` column, existing eligibility is preserved.
 
 Keep credential files outside `public/`. Local credentials are in the ignored `private/` folder. Apply migrations, then import a private CSV with:
 

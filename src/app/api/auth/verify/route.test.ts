@@ -2,11 +2,11 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { hashVoterPassword } from "@/lib/voter-credentials";
 
 const mocks = vi.hoisted(() => ({
-  voter: vi.fn(), ballot: vi.fn(), create: vi.fn(), set: vi.fn(), election: vi.fn(), closed: vi.fn(),
+  voter: vi.fn(), updateVoter: vi.fn(), ballot: vi.fn(), create: vi.fn(), set: vi.fn(), election: vi.fn(), closed: vi.fn(),
 }));
 vi.mock("next/headers", () => ({ cookies: async () => ({ set: mocks.set }) }));
 vi.mock("@/lib/db", () => ({ db: {
-  voter: { findUnique: mocks.voter }, ballot: { findUnique: mocks.ballot }, votingSession: { create: mocks.create },
+  voter: { findUnique: mocks.voter, update: mocks.updateVoter }, ballot: { findUnique: mocks.ballot }, votingSession: { create: mocks.create },
 } }));
 vi.mock("@/lib/elections", () => ({ getPublishedElectionSummary: mocks.election, votingClosedNotice: mocks.closed }));
 import { POST } from "./route";
@@ -16,6 +16,7 @@ beforeEach(async () => {
   vi.stubEnv("SESSION_SECRET", "s".repeat(32));
   mocks.election.mockResolvedValue({ id: "election" });
   mocks.closed.mockReturnValue(null);
+  mocks.updateVoter.mockResolvedValue({});
   mocks.voter.mockResolvedValue({ id: "voter", username: "voter001", displayName: "Full Voter Name", passwordHash: await hashVoterPassword("CorrectPassword"), eligible: true });
   mocks.ballot.mockResolvedValue(null);
 });
@@ -31,6 +32,15 @@ it("authenticates by normalized username and password and creates a protected se
   expect(mocks.create.mock.calls[0][0].data).toMatchObject({ voterId: "voter", electionId: "election" });
   expect(mocks.set.mock.calls[0][2]).toMatchObject({ httpOnly: true, sameSite: "strict" });
 });
+
+it("upgrades a legacy PBKDF2 hash after authenticating the voter", async () => {
+  const legacy = "pbkdf2-sha256$600000$00112233445566778899aabbccddeeff$d9c7e1c68e5202547145a04feb16e46059e9900736db08c2d08572c4b1bfc27f";
+  mocks.voter.mockResolvedValue({ id: "voter", username: "voter001", displayName: "Full Voter Name", passwordHash: legacy, eligible: true });
+  const response = await login("LegacySyntheticPass");
+  expect(response.status).toBe(200);
+  expect(mocks.updateVoter.mock.calls[0][0].where).toEqual({ id: "voter" });
+  expect(mocks.updateVoter.mock.calls[0][0].data.passwordHash).toMatch(/^\$argon2id\$/);
+}, 30_000);
 
 it("returns the same error for wrong passwords and unknown usernames", async () => {
   const wrong = await login("wrong");
