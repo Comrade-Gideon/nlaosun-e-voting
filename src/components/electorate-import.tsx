@@ -23,10 +23,24 @@ export function ElectorateImport() {
     try {
       const response = await fetch("/api/admin/electorates/import", { method: "POST", body: form });
       const text = await response.text();
-      let body: { imported?: number; errors?: string[]; message?: string } = {};
+      let body: {
+        imported?: number;
+        errors?: string[];
+        message?: string;
+        stage?: string;
+        error?: { name?: string; code?: string; message?: string };
+      } = {};
       try { body = JSON.parse(text); } catch { body = { message: "The server returned an invalid response." }; }
       if (!response.ok) {
-        setResult({ tone: "error", text: body.message ?? "The electorate list could not be imported.", details: [] });
+        const stage = body.stage ? ` (failed during ${body.stage})` : "";
+        const diagnostic = body.error
+          ? `Diagnostic: ${body.error.name ?? "Error"}${body.error.code ? ` (${body.error.code})` : ""}: ${body.error.message ?? "No message"}`
+          : "";
+        setResult({
+          tone: "error",
+          text: `${body.message ?? "The electorate list could not be imported."}${stage}`,
+          details: diagnostic ? [diagnostic] : [],
+        });
         return;
       }
       const imported = body.imported ?? 0;
