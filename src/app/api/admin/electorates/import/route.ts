@@ -21,7 +21,22 @@ export async function POST(request: Request) {
       imported++;
     });
     return NextResponse.json(result);
-  } catch {
-    return NextResponse.json({ message: `The electorate database is temporarily unavailable${imported ? ` (${imported} voters were saved before the error)` : ""}. Please try the upload again.` }, { status: 503 });
+  } catch (error) {
+    const dbError = error as {
+      name?: string;
+      code?: string;
+      message?: string;
+    };
+
+    console.error("[Electorate Import Failed]", {
+      name: dbError?.name,
+      code: dbError?.code,
+      message: dbError?.message?.slice(0, 300),
+      imported,
+    });
+
+    return NextResponse.json({
+      message: `The electorate database is temporarily unavailable${imported ? ` (${imported} voters were saved before the error)` : ""}. Please try the upload again.`,
+    }, { status: 503 });
   }
 }
