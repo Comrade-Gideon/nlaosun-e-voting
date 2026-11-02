@@ -1,5 +1,4 @@
 import { beforeEach, expect, it, vi } from "vitest";
-import { verifyVoterPassword } from "@/lib/voter-credentials";
 
 const mocks = vi.hoisted(() => ({ upsert: vi.fn(), authenticated: vi.fn() }));
 vi.mock("@/lib/admin-auth", () => ({ isAdminAuthenticated: mocks.authenticated }));
@@ -20,16 +19,22 @@ function upload(csv: string) {
   return POST(new Request("https://example.com/api/admin/electorates/import", { method: "POST", body: form }));
 }
 
-it("imports username/password/fullname and stores a salted hash instead of the password", async () => {
+it("imports username/password/fullname and stores the exact password", async () => {
   const response = await upload('username,password,fullname\nVoter001,"Secret,Password","Adebayo, Tunde"\n');
   expect(await response.json()).toEqual({ imported: 1, errors: [] });
   const { where, create, update } = mocks.upsert.mock.calls[0][0];
   expect(where).toEqual({ username: "voter001" });
   expect(create.displayName).toBe("Adebayo, Tunde");
-  expect(create).not.toHaveProperty("password");
+  expect(create.password).toBe("Secret,Password");
+  expect(create).not.toHaveProperty("passwordHash");
   expect(create).not.toHaveProperty("eligible");
   expect(update).toEqual(create);
-  expect(await verifyVoterPassword("Secret,Password", create.passwordHash)).toBe(true);
+});
+
+it("imports multiple voters while keeping every password exact", async () => {
+  const response = await upload('username,password,fullname\none, pass one ,First Voter\ntwo,"pass, two",Second Voter\n');
+  expect(await response.json()).toEqual({ imported: 2, errors: [] });
+  expect(mocks.upsert.mock.calls.map(call => call[0].create.password)).toEqual([" pass one ", "pass, two"]);
 });
 
 it("respects optional eligibility", async () => {
@@ -49,4 +54,16 @@ it("rejects unauthorized imports", async () => {
   mocks.authenticated.mockResolvedValue(false);
   expect((await upload("username,password,fullname\nvoter,Secret,Full Name")).status).toBe(401);
   expect(mocks.upsert).not.toHaveBeenCalled();
+});
+
+it("redacts supplied passwords from import failure logs", async () => {
+  const log = vi.spyOn(console, "error").mockImplementation(() => {});
+  mocks.upsert.mockRejectedValue(new Error("database rejected SecretPassword"));
+  try {
+    const response = await upload("username,password,fullname\nvoter,SecretPassword,Full Name\n");
+    expect(response.status).toBe(503);
+    expect(JSON.stringify(log.mock.calls)).not.toContain("SecretPassword");
+  } finally {
+    log.mockRestore();
+  }
 });

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { BarChart3, Bell, BookOpen, ClipboardPenLine, ExternalLink, LayoutDashboard, LogOut, Mail, Settings, Upload } from "lucide-react";
+import { BarChart3, Bell, ClipboardPenLine, ExternalLink, LayoutDashboard, LogOut, Mail, Settings, Upload } from "lucide-react";
 
 const links = [
   ["/admin", "Dashboard", LayoutDashboard],
@@ -11,7 +11,6 @@ const links = [
   ["/admin/electorates", "Electorates", Upload],
   ["/admin/settings", "Election Settings", Settings],
   ["/admin/results", "Vote Monitor / Results", BarChart3],
-  ["/admin/announcements", "Announcements / Blog", BookOpen],
   ["/admin/emails", "Email Candidates", Mail],
 ] as const;
 

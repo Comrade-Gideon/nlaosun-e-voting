@@ -10,10 +10,11 @@ export async function POST(request: Request) {
   if (!(file instanceof File) || !file.name.toLowerCase().endsWith(".csv")) return NextResponse.json({ message: "Choose a CSV file." }, { status: 400 });
   if (file.size > 5_000_000) return NextResponse.json({ message: "CSV must be 5MB or smaller." }, { status: 413 });
   const text = await file.text();
-  try { parseElectorateCsv(text); }
+  let passwords: string[];
+  try { passwords = parseElectorateCsv(text).credentials.map(({ password }) => password); }
   catch (error) { return NextResponse.json({ message: (error as Error).message }, { status: 400 }); }
   let imported = 0;
-  let stage = "password hashing";
+  let stage = "database upsert";
   try {
     const result = await importElectorateCsv(text, async details => {
       stage = "database upsert";
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
         where: { username: details.username }, update: details, create: details,
       }));
       imported++;
-      stage = "password hashing";
+      stage = "database upsert";
     });
     return NextResponse.json(result);
   } catch (error) {
@@ -30,10 +31,13 @@ export async function POST(request: Request) {
       code?: string;
       message?: string;
     };
-    const safeMessage = dbError?.message
+    let safeMessage = dbError?.message
       ?.replace(/postgres(?:ql)?:\/\/[^\s"'`]+/gi, "[redacted database URL]")
       ?.replace(/(password|pass|secret|token|authorization)\s*[:=]\s*[^\s,;]+/gi, "$1=[redacted]")
       ?.slice(0, 300);
+    for (const password of passwords) {
+      if (password) safeMessage = safeMessage?.replaceAll(password, "[redacted password]");
+    }
 
     console.error("[Electorate Import Failed]", {
       name: dbError?.name,

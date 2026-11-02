@@ -173,7 +173,7 @@ model Guarantor {
 model Voter {
   id                    String          @id @default(cuid())
   username              String?         @unique
-  passwordHash          String?
+  password             String?
   // Retained for existing voter records and their ballot history.
   phoneNumber           String?         @unique @map("matriculationNumber")
   surnameNormalizedHash String          @default("")

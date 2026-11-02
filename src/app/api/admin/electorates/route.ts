@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { db, withDatabaseRetry } from "@/lib/db";
-import { hashVoterPassword, usernameSchema, passwordSchema } from "@/lib/voter-credentials";
+import { usernameSchema, passwordSchema } from "@/lib/voter-credentials";
 
 const publicVoter = { id: true, displayName: true, username: true, eligible: true } as const;
 
@@ -29,12 +29,11 @@ export async function POST(request: Request) {
     const username = parsed.data.username;
     const duplicate = await withDatabaseRetry(() => db.voter.findUnique({ where: { username } }));
     if (duplicate) return NextResponse.json({ message: "An electorate already exists with this username." }, { status: 409 });
-    const passwordHash = await hashVoterPassword(parsed.data.password);
     const voter = await withDatabaseRetry(() => db.voter.create({
       data: {
         username,
         displayName: parsed.data.displayName,
-        passwordHash,
+        password: parsed.data.password,
         eligible: parsed.data.eligible,
       },
       select: publicVoter,
@@ -57,14 +56,13 @@ export async function PATCH(request: Request) {
       const duplicate = await withDatabaseRetry(() => db.voter.findFirst({ where: { username, id: { not: parsed.data.id } } }));
       if (duplicate) return NextResponse.json({ message: "Another electorate already uses this username." }, { status: 409 });
     }
-    const passwordHash = parsed.data.password ? await hashVoterPassword(parsed.data.password) : undefined;
     const voter = await withDatabaseRetry(() => db.voter.update({
       where: { id: parsed.data.id },
       data: {
         displayName: parsed.data.displayName,
         username,
         eligible: parsed.data.eligible,
-        passwordHash,
+        password: parsed.data.password,
       },
       select: publicVoter,
     }));

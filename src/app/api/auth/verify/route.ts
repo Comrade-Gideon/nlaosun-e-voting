@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   const closed = votingClosedNotice(election);
   if (closed) return NextResponse.json({ code: "VOTING_NOT_OPEN", message: closed.message }, { status: 403 });
   const voter = await db.voter.findUnique({ where: { username: parsed.data.username } });
-  const validIdentity = await verifyVoterPassword(parsed.data.password, voter?.passwordHash);
+  const validIdentity = verifyVoterPassword(parsed.data.password, voter?.password);
   const existingBallot = voter && election
     ? await db.ballot.findUnique({ where: { electionId_voterId: { electionId: election.id, voterId: voter.id } } })
     : null;

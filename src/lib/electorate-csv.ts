@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { hashVoterPassword, passwordSchema, usernameSchema } from "./voter-credentials";
+import { passwordSchema, usernameSchema } from "./voter-credentials";
 
 // Parse complete CSV records, including quoted commas, escaped quotes and newlines.
 function records(csv: string) {
@@ -31,7 +31,7 @@ const rowSchema = z.object({
   displayName: z.string().trim().min(1).max(150),
 });
 type Credential = z.infer<typeof rowSchema> & { eligible?: boolean };
-export type VoterImportData = { username: string; passwordHash: string; displayName: string; eligible?: boolean };
+export type VoterImportData = { username: string; password: string; displayName: string; eligible?: boolean };
 
 export function parseElectorateCsv(text: string) {
   const rows = records(text);
@@ -65,7 +65,7 @@ export async function importElectorateCsv(text: string, save: (data: VoterImport
   const { credentials, errors } = parseElectorateCsv(text);
   let imported = 0;
   for (const { password, ...details } of credentials) {
-    await save({ ...details, passwordHash: await hashVoterPassword(password) });
+    await save({ ...details, password });
     imported++;
   }
   return { imported, errors: errors.slice(0, 20) };

@@ -1,5 +1,4 @@
 import { PrismaClient } from "@prisma/client";
-import { hashVoterPassword } from "../src/lib/voter-credentials";
 
 const db = new PrismaClient();
 
@@ -70,8 +69,8 @@ async function main() {
 
   await db.voter.createMany({
     data: [
-      { username: "demo.okafor", passwordHash: await hashVoterPassword("DemoVoter2026!"), displayName: "Chinedu Okafor" },
-      { username: "demo.bello", passwordHash: await hashVoterPassword("DemoBello2026!"), displayName: "Maryam Bello" },
+      { username: "demo.okafor", password: "DemoVoter2026!", displayName: "Chinedu Okafor" },
+      { username: "demo.bello", password: "DemoBello2026!", displayName: "Maryam Bello" },
     ],
   });
 

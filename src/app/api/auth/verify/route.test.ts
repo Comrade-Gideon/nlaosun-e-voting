@@ -1,5 +1,4 @@
 import { beforeEach, expect, it, vi } from "vitest";
-import { hashVoterPassword } from "@/lib/voter-credentials";
 
 const mocks = vi.hoisted(() => ({
   voter: vi.fn(), ballot: vi.fn(), create: vi.fn(), set: vi.fn(), election: vi.fn(), closed: vi.fn(),
@@ -16,7 +15,7 @@ beforeEach(async () => {
   vi.stubEnv("SESSION_SECRET", "s".repeat(32));
   mocks.election.mockResolvedValue({ id: "election" });
   mocks.closed.mockReturnValue(null);
-  mocks.voter.mockResolvedValue({ id: "voter", username: "voter001", displayName: "Full Voter Name", passwordHash: await hashVoterPassword("CorrectPassword"), eligible: true });
+  mocks.voter.mockResolvedValue({ id: "voter", username: "voter001", displayName: "Full Voter Name", password: "CorrectPassword", eligible: true });
   mocks.ballot.mockResolvedValue(null);
 });
 const login = (password = "CorrectPassword") => POST(new Request("https://example.com/api/auth/verify", {
@@ -32,10 +31,8 @@ it("authenticates by normalized username and password and creates a protected se
   expect(mocks.set.mock.calls[0][2]).toMatchObject({ httpOnly: true, sameSite: "strict" });
 });
 
-it("rejects password hashes that require unsupported legacy PBKDF2 iterations", async () => {
-  const legacy = "pbkdf2-sha256$600000$00112233445566778899aabbccddeeff$d9c7e1c68e5202547145a04feb16e46059e9900736db08c2d08572c4b1bfc27f";
-  mocks.voter.mockResolvedValue({ id: "voter", username: "voter001", displayName: "Full Voter Name", passwordHash: legacy, eligible: true });
-  const response = await login("LegacySyntheticPass");
+it("rejects an invalid password", async () => {
+  const response = await login("IncorrectPassword");
   expect(response.status).toBe(401);
 });
 
