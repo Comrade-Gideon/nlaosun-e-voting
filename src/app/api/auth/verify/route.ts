@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { usernameSchema, passwordSchema, verifyVoterPasswordForLogin } from "@/lib/voter-credentials";
+import { usernameSchema, passwordSchema, verifyVoterPassword } from "@/lib/voter-credentials";
 import { db } from "@/lib/db";
 import { getPublishedElectionSummary, votingClosedNotice } from "@/lib/elections";
 import {
@@ -26,26 +26,10 @@ export async function POST(request: Request) {
   const closed = votingClosedNotice(election);
   if (closed) return NextResponse.json({ code: "VOTING_NOT_OPEN", message: closed.message }, { status: 403 });
   const voter = await db.voter.findUnique({ where: { username: parsed.data.username } });
-  const identity = await verifyVoterPasswordForLogin(parsed.data.password, voter?.passwordHash);
-  const validIdentity = identity.valid;
+  const validIdentity = await verifyVoterPassword(parsed.data.password, voter?.passwordHash);
   const existingBallot = voter && election
     ? await db.ballot.findUnique({ where: { electionId_voterId: { electionId: election.id, voterId: voter.id } } })
     : null;
-
-  if (voter && identity.replacementHash) {
-    try {
-      await db.voter.update({ where: { id: voter.id }, data: { passwordHash: identity.replacementHash } });
-    } catch (error) {
-      // A failed opportunistic migration must not lock out a voter. Their
-      // existing PBKDF2 hash remains valid and can be upgraded on a later login.
-      const dbError = error as { code?: string; message?: string };
-      console.error("[Voter Password Hash Upgrade Failed]", {
-        voterId: voter.id,
-        code: dbError?.code,
-        message: dbError?.message?.slice(0, 200),
-      });
-    }
-  }
 
   if (election && voter && voter.eligible && validIdentity && existingBallot) {
     return NextResponse.json({ code: "ALREADY_VOTED", message: "You have already cast your vote in this election. A second vote is not permitted." }, { status: 409 });

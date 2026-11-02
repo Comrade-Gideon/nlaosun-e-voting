@@ -1,79 +1,67 @@
-import { randomBytes, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
-import { argon2id, createSHA256, pbkdf2 } from "hash-wasm";
 
 export const usernameSchema = z.string().trim().min(1).max(100).regex(/^\S+$/, "Username cannot contain spaces").transform(value => value.toLowerCase());
 export const passwordSchema = z.string().min(1).max(256);
-const ARGON2_MEMORY_KIB = 19_456;
-const ARGON2_ITERATIONS = 2;
-const ARGON2_PARALLELISM = 1;
-const ARGON2_PREFIX = `$argon2id$v=19$m=${ARGON2_MEMORY_KIB},t=${ARGON2_ITERATIONS},p=${ARGON2_PARALLELISM}$`;
-const LEGACY_PBKDF2_ITERATIONS = 600_000;
-const LEGACY_PBKDF2_PATTERN = /^pbkdf2-sha256\$600000\$([a-f0-9]{32})\$([a-f0-9]{64})$/;
-const ARGON2ID_PATTERN = /^\$argon2id\$v=19\$m=19456,t=2,p=1\$([A-Za-z0-9+/]+)\$([A-Za-z0-9+/]+)$/;
 
-async function deriveArgon2id(password: string, salt: Uint8Array) {
-  return argon2id({
-    password,
-    salt,
-    iterations: ARGON2_ITERATIONS,
-    memorySize: ARGON2_MEMORY_KIB,
-    parallelism: ARGON2_PARALLELISM,
-    hashLength: 32,
-    outputType: "binary",
-  });
+// Cloudflare Workers rejects PBKDF2 operations above 100,000 iterations.
+// Use its native Web Crypto implementation at the supported maximum; this also
+// avoids hash-wasm's dynamic WebAssembly compilation, which Workers blocks.
+const PBKDF2_ITERATIONS = 100_000;
+const SALT_BYTES = 16;
+const HASH_BYTES = 32;
+const HASH_PREFIX = `pbkdf2-sha256$${PBKDF2_ITERATIONS}$`;
+const HASH_PATTERN = /^pbkdf2-sha256\$100000\$([a-f0-9]{32})\$([a-f0-9]{64})$/;
+
+function toHex(bytes: Uint8Array) {
+  return Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function fromHex(value: string) {
+  if (!/^(?:[a-f0-9]{2})+$/i.test(value)) return null;
+  const bytes = new Uint8Array(value.length / 2);
+  for (let i = 0; i < bytes.length; i++) bytes[i] = Number.parseInt(value.slice(i * 2, i * 2 + 2), 16);
+  return bytes;
+}
+
+async function derive(password: string, salt: Uint8Array) {
+  const saltBuffer = new ArrayBuffer(salt.byteLength);
+  new Uint8Array(saltBuffer).set(salt);
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"],
+  );
+  return new Uint8Array(await crypto.subtle.deriveBits(
+    { name: "PBKDF2", hash: "SHA-256", salt: saltBuffer, iterations: PBKDF2_ITERATIONS },
+    key,
+    HASH_BYTES * 8,
+  ));
+}
+
+function constantTimeEqual(actual: Uint8Array, expected: Uint8Array) {
+  if (actual.length !== expected.length) return false;
+  let difference = 0;
+  for (let i = 0; i < actual.length; i++) difference |= actual[i] ^ expected[i];
+  return difference === 0;
 }
 
 export async function hashVoterPassword(password: string) {
-  const salt = randomBytes(16);
-  const derived = await deriveArgon2id(password, salt);
-  const saltText = salt.toString("base64").replace(/=+$/, "");
-  const hashText = Buffer.from(derived).toString("base64").replace(/=+$/, "");
-  return `${ARGON2_PREFIX}${saltText}$${hashText}`;
-}
-
-function equalDerivedKey(actual: Uint8Array, expected: Uint8Array) {
-  return actual.length === expected.length && timingSafeEqual(Buffer.from(actual), Buffer.from(expected));
-}
-
-async function verifyArgon2id(password: string, stored: string) {
-  const match = ARGON2ID_PATTERN.exec(stored);
-  if (!match) return false;
-  const salt = Buffer.from(match[1], "base64");
-  const expected = Buffer.from(match[2], "base64");
-  if (salt.length !== 16 || expected.length !== 32) return false;
-  return equalDerivedKey(await deriveArgon2id(password, salt), expected);
-}
-
-async function verifyLegacyPbkdf2(password: string, stored: string) {
-  const match = LEGACY_PBKDF2_PATTERN.exec(stored);
-  if (!match) return false;
-  const actual = await pbkdf2({
-    password,
-    salt: Buffer.from(match[1], "hex"),
-    iterations: LEGACY_PBKDF2_ITERATIONS,
-    hashLength: 32,
-    hashFunction: createSHA256(),
-    outputType: "binary",
-  });
-  return equalDerivedKey(actual, Buffer.from(match[2], "hex"));
+  const salt = crypto.getRandomValues(new Uint8Array(SALT_BYTES));
+  const derived = await derive(password, salt);
+  return `${HASH_PREFIX}${toHex(salt)}$${toHex(derived)}`;
 }
 
 export async function verifyVoterPassword(password: string, stored: string | null | undefined) {
-  if (typeof stored !== "string") {
-    // Keep a password-dependent KDF cost for unknown usernames.
-    await deriveArgon2id(password, new Uint8Array(16));
+  const match = typeof stored === "string" ? HASH_PATTERN.exec(stored) : null;
+  if (!match) {
+    // Keep the same KDF cost for unknown users and unsupported hash formats.
+    await derive(password, new Uint8Array(SALT_BYTES));
     return false;
   }
-  if (stored.startsWith("$argon2id$")) return verifyArgon2id(password, stored);
-  return verifyLegacyPbkdf2(password, stored);
-}
-
-export async function verifyVoterPasswordForLogin(password: string, stored: string | null | undefined) {
-  const valid = await verifyVoterPassword(password, stored);
-  const isLegacyHash = typeof stored === "string" && LEGACY_PBKDF2_PATTERN.test(stored);
-  return {
-    valid,
-    replacementHash: valid && isLegacyHash ? await hashVoterPassword(password) : undefined,
-  };
+  const salt = fromHex(match[1]);
+  const expected = fromHex(match[2]);
+  if (!salt || !expected || salt.length !== SALT_BYTES || expected.length !== HASH_BYTES) return false;
+  return constantTimeEqual(await derive(password, salt), expected);
 }
