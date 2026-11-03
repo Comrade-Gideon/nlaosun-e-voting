@@ -635,6 +635,34 @@ footer .brand b {
   border-radius: 8px;
   margin-top: 6px;
 }
+.login-password-field {
+  position: relative;
+  margin-top: 6px;
+}
+.login-password-field input {
+  margin-top: 0;
+  padding-right: 50px;
+}
+.password-visibility-toggle {
+  position: absolute;
+  top: 50%;
+  right: 9px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+.password-visibility-toggle:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
 .notice {
   background: var(--soft);
   padding: 18px;
