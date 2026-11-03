@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   metadataBase: getConfiguredSiteUrl() ?? new URL("http://localhost:3000"),
   title: "NLA (Osun State Chapter) E-Voting",
   description: "Secure, transparent online voting for the Nigerian Library Association, Osun State Chapter.",
-  icons: { icon: "/favicon.ico", shortcut: "/favicon.ico" },
+  icons: { icon: "/nla-favicon.ico", shortcut: "/nla-favicon.ico" },
   openGraph: {
     title: "NLA (Osun State Chapter) E-Voting",
     description: "Secure, transparent online voting for the Nigerian Library Association, Osun State Chapter.",
