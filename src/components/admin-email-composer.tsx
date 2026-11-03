@@ -61,26 +61,33 @@ export function AdminEmailComposer({
 
   async function send(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setError("");
+    if (subject.trim().length < 3) return setError("Subject must contain at least 3 non-space characters.");
+    if (body.trim().length < 10) return setError("Message must contain at least 10 non-space characters.");
     if (!selected.size) return setError("Choose at least one recipient.");
     setBusy(true);
-    setError("");
     setResult(null);
-    const response = await fetch("/api/admin/emails", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ subject, body, recipients: [...selected] }),
-    });
-    const payload = await response.json().catch(() => null);
-    if (!response.ok) setError(payload?.message ?? "The message could not be sent.");
-    else {
-      setResult({ sent: payload.sent, failed: payload.failed ?? [], skipped: payload.skipped ?? [] });
-      if (!payload.failed?.length) {
-        setSubject("");
-        setBody("");
-        setSelected(new Set());
+    try {
+      const response = await fetch("/api/admin/emails", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ subject, body, recipients: [...selected] }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) setError(payload?.message ?? "The message could not be sent.");
+      else {
+        setResult({ sent: payload.sent, failed: payload.failed ?? [], skipped: payload.skipped ?? [] });
+        if (!payload.failed?.length) {
+          setSubject("");
+          setBody("");
+          setSelected(new Set());
+        }
       }
+    } catch {
+      setError("The email service could not be reached. Check your connection and try again.");
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
   }
 
   return (
@@ -103,7 +110,7 @@ export function AdminEmailComposer({
               <header>
                 <span><Icon />{title} ({people.length})</span>
                 {people.length > 0 && (
-                  <button type="button" onClick={() => toggleGroup(people, !allOn)}>
+                  <button type="button" disabled={busy} onClick={() => toggleGroup(people, !allOn)}>
                     {allOn ? "Clear all" : "Select all"}
                   </button>
                 )}
@@ -122,6 +129,7 @@ export function AdminEmailComposer({
                         <input
                           type="checkbox"
                           checked={selected.has(person.email)}
+                          disabled={busy}
                           onChange={() => toggle(person.email)}
                         />
                         <span>
@@ -145,8 +153,10 @@ export function AdminEmailComposer({
           Subject
           <input
             value={subject}
+            disabled={busy}
             onChange={(event) => { setSubject(event.target.value); setResult(null); }}
             placeholder="e.g. Nomination deadline reminder"
+            minLength={3}
             maxLength={200}
             required
           />
@@ -155,9 +165,11 @@ export function AdminEmailComposer({
           Message
           <textarea
             value={body}
+            disabled={busy}
             onChange={(event) => { setBody(event.target.value); setResult(null); }}
             placeholder={"Dear candidate,\n\nNominations close on…"}
             rows={12}
+            minLength={10}
             maxLength={10000}
             required
           />

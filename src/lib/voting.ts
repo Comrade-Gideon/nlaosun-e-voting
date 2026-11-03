@@ -14,11 +14,17 @@ export async function submitBallot(rawToken: string, selections: BallotSelection
   const tokenHash = hashToken(rawToken);
   const session = await db.votingSession.findUnique({
     where: { tokenHash },
-    include: { election: { include: { positions: { include: { candidates: true } } } } },
+    include: {
+      voter: { select: { eligible: true } },
+      election: { include: { positions: { include: { candidates: true } } } },
+    },
   });
 
   if (!session || session.usedAt || session.expiresAt <= new Date()) {
     throw new VotingError("SESSION_INVALID", "Your voting session has expired. Verify your identity again.", 401);
+  }
+  if (!session.voter.eligible) {
+    throw new VotingError("VOTER_INELIGIBLE", "This voter is no longer eligible to vote.", 403);
   }
   if (session.election.status !== "PUBLISHED" || electionState(session.election.opensAt, session.election.closesAt) !== "open") {
     throw new VotingError("ELECTION_NOT_OPEN", "Voting is not currently open.", 409);

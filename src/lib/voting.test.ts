@@ -15,6 +15,7 @@ beforeEach(() => {
     id: "session",
     electionId: "election",
     voterId: "voter",
+    voter: { eligible: true },
     usedAt: null,
     expiresAt: new Date(Date.now() + 60_000),
     election: {
@@ -48,5 +49,14 @@ it("preserves one-vote-per-position validation", async () => {
     { positionId: "position", candidateId: "candidate" },
   ];
   await expect(submitBallot("session-token", selections)).rejects.toMatchObject({ code: "DUPLICATE_POSITION" });
+  expect(mocks.create).not.toHaveBeenCalled();
+});
+
+it("rejects a voter disabled after their login session was issued", async () => {
+  const session = await mocks.findUnique();
+  mocks.findUnique.mockResolvedValue({ ...session, voter: { eligible: false } });
+
+  await expect(submitBallot("session-token", [{ positionId: "position", candidateId: "candidate" }]))
+    .rejects.toMatchObject({ code: "VOTER_INELIGIBLE", status: 403 });
   expect(mocks.create).not.toHaveBeenCalled();
 });

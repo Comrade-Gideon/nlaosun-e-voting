@@ -40,7 +40,8 @@ function base64url(value: string) {
 
 /** RFC 2047 encoded word, so accented names and dashes survive in a Subject. */
 function encodeHeader(value: string) {
-  return /^[\x20-\x7E]*$/.test(value) ? value : `=?UTF-8?B?${base64url(value).replace(/-/g, "+").replace(/_/g, "/")}?=`;
+  const safeValue = value.replace(/[\x00-\x1F\x7F]/g, " ");
+  return /^[\x20-\x7E]*$/.test(safeValue) ? safeValue : `=?UTF-8?B?${base64url(safeValue).replace(/-/g, "+").replace(/_/g, "/")}?=`;
 }
 
 let cachedToken: { value: string; expiresAt: number } | undefined;

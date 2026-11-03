@@ -10,7 +10,7 @@ export default async function VotePage() {
   const session = await db.votingSession.findUnique({
     where: { tokenHash: hashToken(token) },
     include: {
-      voter: { select: { displayName: true } },
+      voter: { select: { displayName: true, eligible: true } },
       election: {
         include: {
           positions: {
@@ -25,7 +25,7 @@ export default async function VotePage() {
       },
     },
   });
-  if (!session || session.usedAt || session.expiresAt <= new Date())
+  if (!session || !session.voter.eligible || session.usedAt || session.expiresAt <= new Date())
     redirect("/login");
   return (
     <Ballot

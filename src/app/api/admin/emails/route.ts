@@ -28,11 +28,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
   const parsed = schema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success)
+  if (!parsed.success) {
+    const issues = parsed.error.issues;
+    const fields = new Set(issues.map((issue) => issue.path[0]));
+    const recipientIssues = issues.filter((issue) => issue.path[0] === "recipients");
+    const details = [
+      ...(fields.has("subject") ? ["Subject must be between 3 and 200 characters."] : []),
+      ...(fields.has("body") ? ["Message must be between 10 and 10,000 characters after trimming."] : []),
+      ...(recipientIssues.some((issue) => issue.code === "too_big")
+        ? ["Select no more than 500 recipients."]
+        : recipientIssues.some((issue) => issue.code === "too_small")
+          ? ["Choose at least one recipient."]
+          : recipientIssues.length
+            ? ["One or more selected recipient addresses are invalid."]
+            : []),
+    ];
     return NextResponse.json(
-      { message: "Enter a subject, a message, and choose at least one recipient." },
+      {
+        code: "INVALID_EMAIL_REQUEST",
+        message: details.join(" ") || "Review the subject, message, and recipient selection.",
+      },
       { status: 400 },
     );
+  }
 
   if (!mailerConfigured())
     return NextResponse.json(
@@ -45,7 +63,15 @@ export async function POST(request: Request) {
 
   // Addresses are re-checked against the database rather than trusted from the
   // request, so this endpoint cannot be used to mail arbitrary people.
-  const allowed = await allowedRecipients();
+  let allowed: Set<string>;
+  try {
+    allowed = await allowedRecipients();
+  } catch {
+    return NextResponse.json(
+      { code: "RECIPIENTS_UNAVAILABLE", message: "The candidate and nomination list is temporarily unavailable. Nothing was sent; please try again." },
+      { status: 503 },
+    );
+  }
   const recipients = [...new Set(parsed.data.recipients.map((item) => item.toLowerCase()))].filter((item) =>
     allowed.has(item),
   );

@@ -21,3 +21,25 @@ it("acknowledges submission with a receipt and escapes candidate content", () =>
   expect(message.html).toContain("&lt;Candidate&gt;");
   expect(message.html).not.toContain("<Candidate>");
 });
+
+it("prevents subject line breaks from adding mail headers", async () => {
+  vi.stubEnv("GOOGLE_CLIENT_ID", "client");
+  vi.stubEnv("GOOGLE_CLIENT_SECRET", "secret");
+  vi.stubEnv("GOOGLE_REFRESH_TOKEN", "refresh");
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(Response.json({ access_token: "access", expires_in: 3600 }))
+    .mockResolvedValueOnce(Response.json({ id: "sent" }));
+  vi.stubGlobal("fetch", fetchMock);
+
+  await sendMail({
+    to: "candidate@example.com",
+    subject: "Update\r\nBcc: hidden@example.com",
+    text: "Election update",
+    html: "<p>Election update</p>",
+  });
+
+  const request = JSON.parse(fetchMock.mock.calls[1][1].body as string);
+  const raw = Buffer.from(request.raw, "base64url").toString("utf8");
+  expect(raw).toContain("Subject: Update  Bcc: hidden@example.com");
+  expect(raw).not.toContain("\r\nBcc: hidden@example.com");
+});
