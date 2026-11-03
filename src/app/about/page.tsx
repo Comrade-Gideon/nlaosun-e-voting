@@ -15,21 +15,21 @@ import { SiteFooter } from "@/components/site-footer";
 
 const team: { name: string; role: string; duty: string | null; image: string | null; Icon: typeof Scale }[] = [
   {
-    name: "Mr I. O. Mudashiru",
+    name: "Mr. I. O. Mudasiru",
     role: "Chairman, NLA (Osun State Chapter) 2026 Election Committee",
     duty: "Provides electoral leadership and safeguards a fair, credible, and transparent election.",
     image: "/gideon-oluwatomiwa-ayodele.png",
     Icon: Scale,
   },
   {
-    name: "Dr Yemisi Ojokuku",
+    name: "Dr. Yemisi Ojokuku",
     role: "General Secretary, NLA (Osun State Chapter) 2026 Election Committee",
     duty: "Serves the General Secretary of NLA (Osun State Chapter) 2026 Election Committee.",
     image: "/ayooluwa-gideon-oloyede.png",
     Icon: ClipboardCheck,
   },
   {
-    name: "Abiodun Olusipe",
+    name: "Mr. Abiodun Olusipe",
     role: "Member, NLA (Osun State Chapter) 2026 Election Committee",
     duty: "Coordinates official publicity and voter communication for the Election Committee.",
     image: "/Clean-Cut Portrait in White Shirt.png",
